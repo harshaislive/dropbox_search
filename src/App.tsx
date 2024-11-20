@@ -100,8 +100,8 @@ const SearchApp: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="py-8">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="max-w-3xl mx-auto space-y-6">
           {/* Search Input */}
           <div className="relative">
@@ -123,112 +123,70 @@ const SearchApp: React.FC = () => {
           </div>
 
           {/* Filter Section */}
-          <div className="bg-white p-4 rounded-lg shadow-sm space-y-4">
-            {/* Media Type Filters */}
-            <div>
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Media Type</h3>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => setMediaType('all')}
-                  className={`inline-flex items-center px-3 py-1.5 rounded-md text-sm ${
-                    mediaType === 'all'
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  <Calendar className="h-4 w-4 mr-1" />
-                  All
-                </button>
-                <button
-                  onClick={() => setMediaType('images')}
-                  className={`inline-flex items-center px-3 py-1.5 rounded-md text-sm ${
-                    mediaType === 'images'
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  <Image className="h-4 w-4 mr-1" />
-                  Images
-                </button>
-                <button
-                  onClick={() => setMediaType('videos')}
-                  className={`inline-flex items-center px-3 py-1.5 rounded-md text-sm ${
-                    mediaType === 'videos'
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  <Video className="h-4 w-4 mr-1" />
-                  Videos
-                </button>
-              </div>
+          <div>
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Media Type</h3>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setMediaType('all')}
+                className={`inline-flex items-center px-3 py-1.5 rounded-md text-sm ${
+                  mediaType === 'all'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <Calendar className="h-4 w-4 mr-1" />
+                All
+              </button>
+              <button
+                onClick={() => setMediaType('images')}
+                className={`inline-flex items-center px-3 py-1.5 rounded-md text-sm ${
+                  mediaType === 'images'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <Image className="h-4 w-4 mr-1" />
+                Images
+              </button>
+              <button
+                onClick={() => setMediaType('videos')}
+                className={`inline-flex items-center px-3 py-1.5 rounded-md text-sm ${
+                  mediaType === 'videos'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <Video className="h-4 w-4 mr-1" />
+                Videos
+              </button>
             </div>
+          </div>
 
-            {/* Date Filters */}
-            <div>
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Date Modified</h3>
-              <div className="flex flex-wrap gap-2">
-                {(['all', 'today', 'this_week', 'this_month', 'last_month', 'this_year'] as DateFilter[]).map((filter) => (
-                  <button
-                    key={filter}
-                    onClick={() => setDateFilter(filter)}
-                    className={`inline-flex items-center px-3 py-1.5 rounded-md text-sm ${
-                      dateFilter === filter
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    <Clock className="h-4 w-4 mr-1" />
-                    {getDateFilterLabel(filter)}
-                  </button>
-                ))}
-              </div>
+          {/* Date Filters */}
+          <div>
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Date Modified</h3>
+            <div className="flex flex-wrap gap-2">
+              {(['all', 'today', 'this_week', 'this_month', 'last_month', 'this_year'] as DateFilter[]).map((filter) => (
+                <button
+                  key={filter}
+                  onClick={() => setDateFilter(filter)}
+                  className={`inline-flex items-center px-3 py-1.5 rounded-md text-sm ${
+                    dateFilter === filter
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <Clock className="h-4 w-4 mr-1" />
+                  {getDateFilterLabel(filter)}
+                </button>
+              ))}
             </div>
           </div>
         </div>
       </div>
-
-      {isLoading && (
-        <div className="text-center py-8">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
-        </div>
-      )}
-
-      {error && (
-        <div className="text-center py-8 text-red-600">
-          {error}
-        </div>
-      )}
-
-      {!isLoading && !error && searchResults.length > 0 && (
-        <>
-          <SearchResults results={searchResults} />
-          {hasMore && (
-            <div className="flex justify-center mt-6 mb-8">
-              <button
-                onClick={loadMore}
-                disabled={isLoadingMore}
-                className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-              >
-                {isLoadingMore ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Loading...</span>
-                  </>
-                ) : (
-                  <span>Load More</span>
-                )}
-              </button>
-            </div>
-          )}
-        </>
-      )}
-
-      {!isLoading && !error && searchResults.length === 0 && (
-        <div className="text-center py-8 text-gray-500">
-          {searchTerm ? 'No results found' : 'Start typing to search for files'}
-        </div>
-      )}
+      <footer className="fixed bottom-0 w-full py-4 text-center text-sm text-gray-500 bg-white border-t border-gray-200">
+        &copy; 2024 Beforest Search. All rights reserved.
+      </footer>
     </div>
   );
 };
