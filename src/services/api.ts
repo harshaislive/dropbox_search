@@ -71,6 +71,12 @@ export class DropboxService {
 
   private async refreshAccessToken(): Promise<string> {
     try {
+      console.log('Refreshing access token with credentials:', {
+        appKey: this.appKey ? 'present' : 'missing',
+        appSecret: this.appSecret ? 'present' : 'missing',
+        refreshToken: this.refreshToken ? 'present' : 'missing'
+      });
+
       const response = await fetch('https://api.dropbox.com/oauth2/token', {
         method: 'POST',
         headers: {
@@ -85,10 +91,17 @@ export class DropboxService {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to refresh access token');
+        const errorText = await response.text();
+        console.error('Token refresh failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText
+        });
+        throw new Error(`Failed to refresh access token: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log('Successfully refreshed access token');
       return data.access_token;
     } catch (error) {
       console.error('Failed to refresh access token:', error);
@@ -119,10 +132,21 @@ export class DropboxService {
   private async handleApiCall<T>(apiCall: (client: Dropbox) => Promise<DropboxResponse<T>>): Promise<T> {
     const executeWithRetry = async (retryCount = 0): Promise<T> => {
       try {
+        console.log('Getting Dropbox client...');
         const client = await this.getDropboxClient();
+        console.log('Got Dropbox client, making API call...');
         const response = await apiCall(client);
+        console.log('API call successful');
         return response.result;
       } catch (error: any) {
+        console.error('API call failed:', error);
+        console.error('Error details:', {
+          status: error?.status,
+          message: error?.message,
+          error: error?.error,
+          errorSummary: error?.error?.error_summary
+        });
+
         if (error?.status === 401 && retryCount < 1) {
           console.log('Token expired, refreshing...');
           // Invalidate both token and client
@@ -244,38 +268,61 @@ export class DropboxService {
   }
 
   async searchFiles({ query, mediaType = 'all', dateFilter = 'all', cursor }: SearchOptions): Promise<SearchResponse> {
-    if (!query.trim()) return { files: [], hasMore: false, cursor: null, total: 0 };
+    if (!query?.trim()) {
+      console.log('Empty search query, returning empty results');
+      return { files: [], hasMore: false, cursor: null, total: 0 };
+    }
 
     try {
       console.log('Starting search with:', { query, mediaType, dateFilter, cursor });
+      
+      // Validate credentials
+      if (!this.appKey || !this.appSecret || !this.refreshToken) {
+        console.error('Missing Dropbox credentials:', {
+          appKey: this.appKey ? 'present' : 'missing',
+          appSecret: this.appSecret ? 'present' : 'missing',
+          refreshToken: this.refreshToken ? 'present' : 'missing'
+        });
+        throw new Error('Missing Dropbox credentials');
+      }
+
       const searchStartTime = performance.now();
       
       let searchResponse;
       if (cursor) {
+        console.log('Continuing search with cursor:', cursor);
         searchResponse = await this.handleApiCall<files.SearchV2Result>(async (client) => {
           return await client.filesSearchContinueV2({ cursor });
         });
       } else {
+        console.log('Starting new search with query:', query);
+        const searchOptions = {
+          query,
+          options: {
+            path: '',
+            max_results: 50,
+            file_status: { '.tag': 'active' as const },
+            filename_only: false,
+            file_categories: mediaType === 'all' 
+              ? [{ '.tag': 'image' }, { '.tag': 'video' }]
+              : mediaType === 'images' 
+                ? [{ '.tag': 'image' }]
+                : [{ '.tag': 'video' }]
+          }
+        };
+        console.log('Search options:', JSON.stringify(searchOptions, null, 2));
+        
         searchResponse = await this.handleApiCall<files.SearchV2Result>(async (client) => {
-          return await client.filesSearchV2({
-            query,
-            options: {
-              path: '',
-              max_results: 50,
-              file_status: { '.tag': 'active' as const },
-              filename_only: false,
-              file_categories: mediaType === 'all' 
-                ? [{ '.tag': 'image' }, { '.tag': 'video' }]
-                : mediaType === 'images' 
-                  ? [{ '.tag': 'image' }]
-                  : [{ '.tag': 'video' }]
-            }
-          });
+          return await client.filesSearchV2(searchOptions);
         });
       }
 
       const searchEndTime = performance.now();
       console.log(`Search API call took ${((searchEndTime - searchStartTime) / 1000).toFixed(2)}s`);
+
+      if (!searchResponse) {
+        throw new Error('No response received from Dropbox API');
+      }
 
       const matches = searchResponse.matches || [];
       console.log(`Found ${matches.length} initial matches`);
@@ -327,6 +374,51 @@ export class DropboxService {
       };
     } catch (error) {
       console.error('Search failed:', error);
+      throw error;
+    }
+  }
+
+  async continueSearch(cursor: string): Promise<SearchResponse> {
+    if (!cursor) {
+      throw new Error('Cursor is required for continuing search');
+    }
+
+    try {
+      const searchResponse = await this.handleApiCall(async (client) => {
+        return await client.filesSearchContinueV2({ cursor });
+      });
+
+      const matches = searchResponse.matches || [];
+      const files: FileType[] = [];
+
+      for (const match of matches) {
+        const metadata = match.metadata.metadata;
+        if (metadata['.tag'] === 'file') {
+          const isVideo = this.isVideoFile(metadata.path_lower || '');
+          files.push({
+            id: metadata.id,
+            path: metadata.path_lower || '',
+            name: metadata.name,
+            isVideo,
+            thumbnailUrl: '', // Will be populated by getThumbnailsBatch
+            serverModified: metadata.server_modified,
+            size: metadata.size || 0
+          });
+        }
+      }
+
+      let filesWithThumbnails = files;
+      if (files.length > 0) {
+        filesWithThumbnails = await this.getThumbnailsBatch(files);
+      }
+
+      return {
+        files: filesWithThumbnails,
+        hasMore: searchResponse.has_more || false,
+        cursor: searchResponse.cursor || null
+      };
+    } catch (error) {
+      console.error('Continue search failed:', error);
       throw error;
     }
   }

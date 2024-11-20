@@ -1,73 +1,110 @@
 import React, { useState } from 'react';
-import { Key } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
-interface AuthFormProps {
-  onSuccess: () => void;
-}
-
-export const AuthForm: React.FC<AuthFormProps> = ({ onSuccess }) => {
-  const [appKey, setAppKey] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export const AuthForm: React.FC = () => {
+  const [isLogin, setIsLogin] = useState(true);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const { login, register } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError(null);
+    setError('');
+
+    if (!username || !password) {
+      setError('Please fill in all fields');
+      return;
+    }
 
     try {
-      // Store the access token
-      localStorage.setItem('dropboxAccessToken', appKey);
-      onSuccess();
+      let success;
+      if (isLogin) {
+        success = await login(username, password);
+        if (!success) {
+          setError('Invalid username or password');
+        }
+      } else {
+        success = await register(username, password);
+        if (!success) {
+          setError('Username already exists');
+        } else {
+          // Auto-login after successful registration
+          await login(username, password);
+        }
+      }
     } catch (err) {
-      console.error('Authentication error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to authenticate');
-    } finally {
-      setIsLoading(false);
+      setError('An error occurred. Please try again.');
     }
   };
 
   return (
-    <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
-      <div className="flex items-center justify-center mb-6">
-        <Key className="w-12 h-12 text-blue-600" />
-      </div>
-      <h2 className="text-2xl font-bold text-center text-gray-900 mb-6">
-        Connect to Dropbox
-      </h2>
-      <p className="text-sm text-gray-600 mb-6 text-center">
-        Enter your Dropbox access token to connect to your account.
-      </p>
-      {error && (
-        <div className="mb-4 p-3 bg-red-50 border-l-4 border-red-500 text-red-700">
-          {error}
-        </div>
-      )}
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Access Token
-          </label>
-          <input
-            type="password"
-            value={appKey}
-            onChange={(e) => setAppKey(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter your Dropbox access token"
-            required
-          />
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            {isLogin ? 'Sign in to your account' : 'Create new account'}
+          </h2>
         </div>
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
-        >
-          {isLoading ? 'Connecting...' : 'Connect'}
-        </button>
-      </form>
-      <p className="mt-4 text-xs text-gray-500 text-center">
-        You can find your access token in your Dropbox App Console under Settings &gt; OAuth 2
-      </p>
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          <div className="rounded-md shadow-sm -space-y-px">
+            <div>
+              <label htmlFor="username" className="sr-only">
+                Username
+              </label>
+              <input
+                id="username"
+                name="username"
+                type="text"
+                required
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                placeholder="Username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+            </div>
+            <div>
+              <label htmlFor="password" className="sr-only">
+                Password
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {error && (
+            <div className="text-red-500 text-sm text-center">{error}</div>
+          )}
+
+          <div>
+            <button
+              type="submit"
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              {isLogin ? 'Sign in' : 'Register'}
+            </button>
+          </div>
+        </form>
+
+        <div className="text-center">
+          <button
+            onClick={() => setIsLogin(!isLogin)}
+            className="text-sm text-blue-600 hover:text-blue-500"
+          >
+            {isLogin
+              ? "Don't have an account? Register"
+              : 'Already have an account? Sign in'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
