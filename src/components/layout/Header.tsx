@@ -15,9 +15,6 @@ export const Header: React.FC = () => {
               alt="Beforest Logo" 
               className="h-12 w-auto"
             />
-            <h1 className="ml-3 text-xl font-semibold text-gray-900">
-              Dropbox Search
-            </h1>
           </div>
           
           <div className="flex items-center space-x-4">
