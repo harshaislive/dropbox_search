@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileIcon, LogOut } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export const Header: React.FC = () => {
@@ -10,7 +10,11 @@ export const Header: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className="flex justify-between items-center">
           <div className="flex items-center">
-            <FileIcon className="h-8 w-8 text-blue-600" />
+            <img 
+              src="https://beforest.co/wp-content/uploads/2024/10/23-Beforest-Black-with-Tagline.png#6421" 
+              alt="Beforest Logo" 
+              className="h-12 w-auto"
+            />
             <h1 className="ml-3 text-xl font-semibold text-gray-900">
               Dropbox Search
             </h1>
