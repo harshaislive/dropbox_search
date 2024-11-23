@@ -22,10 +22,17 @@ app.use('/', authRoutes);
 
 // Error handling middleware
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error(err.stack);
+  console.error('Error:', err);
+  
+  // Send more detailed error in development
+  const message = process.env.NODE_ENV === 'development' 
+    ? err.message 
+    : 'Something went wrong!';
+    
   res.status(500).json({ 
     success: false,
-    message: 'Something went wrong!' 
+    message,
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
 });
 
@@ -36,13 +43,16 @@ const startServer = async () => {
     console.log('Database connected successfully');
   } catch (error) {
     console.error('Error connecting to database:', error);
-    process.exit(1);
+    throw error; // Let the error propagate to show connection issues
   }
 };
 
 // Start server if running directly
 if (require.main === module) {
-  startServer();
+  startServer().catch(error => {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  });
 }
 
 export default app;
