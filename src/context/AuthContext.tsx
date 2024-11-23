@@ -8,8 +8,8 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (username: string, password: string) => Promise<boolean>;
-  register: (username: string, email: string, password: string) => Promise<any>;
+  login: (email: string, password: string) => Promise<any>;
+  register: (email: string, password: string) => Promise<any>;
   verifyOtp: (registrationData: any, otp: string) => Promise<boolean>;
   resendOtp: (registrationData: any) => Promise<void>;
   logout: () => void;
@@ -19,7 +19,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Get the API URL from environment variables
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || window.location.origin;
 if (!API_URL) {
   console.error('VITE_API_URL environment variable is not set');
 }
@@ -37,76 +37,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const login = async (username: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<any> => {
     try {
-      const response = await fetch(`${API_URL}/auth/login`, {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
+        credentials: 'include'
       });
 
-      const data = await response.json();
-
-      if (response.ok && data.token) {
-        const user = {
-          username: data.username,
-          email: data.email,
-          isAdmin: data.isAdmin,
-        };
-        setUser(user);
-        setIsAuthenticated(true);
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(user));
-        return true;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Login failed');
       }
-      return false;
-    } catch (err) {
-      console.error('Login error:', err);
-      return false;
+
+      const data = await response.json();
+      setUser(data.user);
+      setIsAuthenticated(true);
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      return data;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
     }
   };
 
-  const register = async (username: string, email: string, password: string): Promise<any> => {
+  const register = async (email: string, password: string): Promise<any> => {
     try {
-      const response = await fetch(`${API_URL}/auth/register`, {
+      const response = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username, email, password }),
+        body: JSON.stringify({ email, password }),
+        credentials: 'include'
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        return {
-          success: true,
-          username,
-          email,
-        };
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Registration failed');
       }
 
-      return {
-        success: false,
-        message: data.message || 'Registration failed',
-      };
-    } catch (err) {
-      console.error('Registration error:', err);
-      return { success: false, message: 'Registration failed' };
+      const data = await response.json();
+      setUser(data.user);
+      return data;
+    } catch (error) {
+      console.error('Registration error:', error);
+      throw error;
     }
   };
 
   const verifyOtp = async (registrationData: any, otp: string): Promise<boolean> => {
     try {
-      const response = await fetch(`${API_URL}/auth/verify-email`, {
+      const response = await fetch(`${API_URL}/api/auth/verify-email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          username: registrationData.username,
           email: registrationData.email,
           otp,
         }),
@@ -126,13 +117,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const resendOtp = async (registrationData: any): Promise<void> => {
     try {
-      const response = await fetch(`${API_URL}/auth/resend-otp`, {
+      const response = await fetch(`${API_URL}/api/auth/resend-otp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          username: registrationData.username,
           email: registrationData.email,
         }),
       });

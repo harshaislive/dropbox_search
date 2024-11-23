@@ -14,18 +14,24 @@ app.use(cors({
 // Parse JSON bodies
 app.use(express.json());
 
-// Import and use the backend app
+// Import the backend app
 const backendApp = require('./dist/app').default;
 
-// Mount the backend app at /auth prefix
-app.use('/auth', backendApp);
+// API routes - Mount the backend app at /api/auth
+app.use('/api/auth', backendApp);
 
 // Serve static files from the frontend build directory
-app.use(express.static(path.join(__dirname, '../dist')));
+const staticPath = path.join(__dirname, '../dist');
+app.use(express.static(staticPath));
 
 // Serve index.html for all other routes (for client-side routing)
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../dist/index.html'));
+  // Don't serve index.html for API routes
+  if (req.path.startsWith('/api/')) {
+    res.status(404).json({ error: 'Not found' });
+    return;
+  }
+  res.sendFile(path.join(staticPath, 'index.html'));
 });
 
 const PORT = process.env.PORT || 3001;
