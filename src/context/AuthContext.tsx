@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { generateOTP, sendOTPEmail, validateOTP } from '../utils/email';
 
 interface User {
   username: string;
@@ -19,42 +18,42 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
+    const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
-    if (storedUser) {
+    if (token && storedUser) {
       setUser(JSON.parse(storedUser));
       setIsAuthenticated(true);
     }
   }, []);
 
   const login = async (username: string, password: string): Promise<boolean> => {
-    if (username === 'beforest' && password === 'BI@work') {
-      const user = { username, isAdmin: true };
-      setUser(user);
-      setIsAuthenticated(true);
-      localStorage.setItem('user', JSON.stringify(user));
-      return true;
-    }
-
     try {
-      const users = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
-      const foundUser = users.find(
-        (u: any) => u.username === username && 
-        u.password === password && 
-        u.isVerified === true
-      );
-      
-      if (foundUser) {
-        const user = { 
-          username: foundUser.username,
-          email: foundUser.email 
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.token) {
+        const user = {
+          username: data.username,
+          email: data.email,
+          isAdmin: data.isAdmin,
         };
         setUser(user);
         setIsAuthenticated(true);
+        localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(user));
         return true;
       }
@@ -67,31 +66,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = async (username: string, email: string, password: string): Promise<any> => {
     try {
-      const users = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
-      
-      if (users.some((u: any) => u.username === username)) {
-        return { success: false, message: 'Username already exists' };
+      const response = await fetch(`${API_URL}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, email, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        return {
+          success: true,
+          username,
+          email,
+        };
       }
-      if (users.some((u: any) => u.email === email)) {
-        return { success: false, message: 'Email already registered' };
-      }
 
-      const otp = generateOTP();
-      await sendOTPEmail(email, otp, username);
-
-      const tempUser = {
-        username,
-        email,
-        password,
-        isVerified: false
-      };
-
-      localStorage.setItem('tempUser', JSON.stringify(tempUser));
-
-      return { 
-        success: true,
-        username,
-        email
+      return {
+        success: false,
+        message: data.message || 'Registration failed',
       };
     } catch (err) {
       console.error('Registration error:', err);
@@ -99,33 +94,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const verifyOtp = async (registrationData: any, inputOtp: string): Promise<boolean> => {
+  const verifyOtp = async (registrationData: any, otp: string): Promise<boolean> => {
     try {
-      const tempUser = JSON.parse(localStorage.getItem('tempUser') || '{}');
-      
-      if (!tempUser.email) {
-        return false;
+      const response = await fetch(`${API_URL}/auth/verify-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: registrationData.username,
+          email: registrationData.email,
+          otp,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        return true;
       }
-
-      // Validate OTP
-      const isValid = validateOTP(tempUser.email, inputOtp);
-      
-      if (!isValid) {
-        return false;
-      }
-
-      // Get existing users and add verified user
-      const users = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
-      const verifiedUser = {
-        ...tempUser,
-        isVerified: true
-      };
-      
-      users.push(verifiedUser);
-      localStorage.setItem('registeredUsers', JSON.stringify(users));
-      localStorage.removeItem('tempUser');
-
-      return true;
+      return false;
     } catch (err) {
       console.error('OTP verification error:', err);
       return false;
@@ -134,13 +122,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const resendOtp = async (registrationData: any): Promise<void> => {
     try {
-      const tempUser = JSON.parse(localStorage.getItem('tempUser') || '{}');
-      if (!tempUser.email) {
-        throw new Error('No pending registration found');
-      }
+      const response = await fetch(`${API_URL}/auth/resend-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: registrationData.username,
+          email: registrationData.email,
+        }),
+      });
 
-      const newOtp = generateOTP();
-      await sendOTPEmail(tempUser.email, newOtp, tempUser.username);
+      if (!response.ok) {
+        throw new Error('Failed to resend OTP');
+      }
     } catch (err) {
       console.error('Resend OTP error:', err);
       throw err;
@@ -150,6 +145,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     setUser(null);
     setIsAuthenticated(false);
+    localStorage.removeItem('token');
     localStorage.removeItem('user');
   };
 
