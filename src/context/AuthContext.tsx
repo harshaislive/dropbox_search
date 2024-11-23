@@ -8,8 +8,8 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<any>;
-  register: (email: string, password: string) => Promise<any>;
+  login: (username: string, password: string) => Promise<any>;
+  register: (username: string, email: string, password: string) => Promise<any>;
   verifyOtp: (registrationData: any, otp: string) => Promise<boolean>;
   resendOtp: (registrationData: any) => Promise<void>;
   logout: () => void;
@@ -37,14 +37,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const login = async (email: string, password: string): Promise<any> => {
+  const login = async (username: string, password: string): Promise<any> => {
     try {
       const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, password }),
         credentials: 'include'
       });
 
@@ -65,14 +65,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (email: string, password: string): Promise<any> => {
+  const register = async (username: string, email: string, password: string): Promise<any> => {
     try {
+      // Validate email domain
+      if (!email.endsWith('@beforest.co')) {
+        throw new Error('Only @beforest.co email addresses are allowed');
+      }
+
       const response = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, email, password }),
         credentials: 'include'
       });
 

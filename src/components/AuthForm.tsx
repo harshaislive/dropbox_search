@@ -46,51 +46,30 @@ export const AuthForm: React.FC = () => {
       }
 
       try {
-        const success = await login(username, password);
-        if (!success) {
-          setError('Invalid username or password');
-        }
-      } catch (err) {
-        setError('An error occurred. Please try again.');
+        await login(username, password);
+      } catch (err: any) {
+        setError(err.message || 'Login failed');
       }
     } else {
-      if (showOtpField) {
-        // Handle OTP verification
-        try {
-          const success = await verifyOtp(registrationData, otp);
-          if (success) {
-            // Auto-login after successful verification
-            await login(username, password);
-          } else {
-            setError('Invalid OTP. Please try again.');
-          }
-        } catch (err) {
-          setError('An error occurred during verification.');
-        }
-      } else {
-        // Handle initial registration
-        if (!username || !password || !email) {
-          setError('Please fill in all fields');
-          return;
-        }
+      if (!username || !email || !password) {
+        setError('Please fill in all fields');
+        return;
+      }
 
-        if (!validateEmail(email)) {
-          setError('Only @beforest.co email addresses are allowed');
-          return;
-        }
+      if (!validateEmail(email)) {
+        setError('Only @beforest.co email addresses are allowed');
+        return;
+      }
 
-        try {
-          const data = await register(username, email, password);
-          if (data.success) {
-            setRegistrationData(data);
-            setShowOtpField(true);
-            setTimeLeft(300); // Start 5-minute countdown
-          } else {
-            setError(data.message || 'Registration failed');
-          }
-        } catch (err) {
-          setError('An error occurred. Please try again.');
+      try {
+        const response = await register(username, email, password);
+        if (response.success) {
+          setRegistrationData({ username, email });
+          setShowOtpField(true);
+          setTimeLeft(300); // 5 minutes
         }
+      } catch (err: any) {
+        setError(err.message || 'Registration failed');
       }
     }
   };
