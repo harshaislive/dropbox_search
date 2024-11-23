@@ -14,12 +14,14 @@ app.use(cors({
 // Parse JSON bodies
 app.use(express.json());
 
-// Serve static files from the frontend build directory
-app.use(express.static(path.join(__dirname, '../dist')));
-
 // Import and use the backend app
 const backendApp = require('./dist/app').default;
-app.use('/api', backendApp);
+
+// Mount the backend app at the root URL
+app.use('/', backendApp);
+
+// Serve static files from the frontend build directory
+app.use(express.static(path.join(__dirname, '../dist')));
 
 // Serve index.html for all other routes (for client-side routing)
 app.get('*', (req, res) => {
