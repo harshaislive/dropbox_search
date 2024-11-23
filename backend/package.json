@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon src/app.ts",
-    "build": "tsc",
+    "build": "tsc && cp src/app.ts dist/ && tsc dist/app.ts",
     "test": "jest",
     "typeorm": "ts-node ./node_modules/typeorm/cli",
     "migration:generate": "npm run typeorm migration:generate -- -n",

@@ -5,8 +5,9 @@ const app = express();
 // Serve static files from the frontend build directory
 app.use(express.static(path.join(__dirname, '../dist')));
 
-// Handle API routes
-app.use('/api', require('./dist/app').default);
+// Import and use the backend app
+const backendApp = require('./dist/app').default;
+app.use('/api', backendApp);
 
 // Serve index.html for all other routes (for client-side routing)
 app.get('*', (req, res) => {

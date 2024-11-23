@@ -40,14 +40,20 @@ const startServer = async () => {
     await createConnection();
     console.log('Database connected successfully');
 
-    const PORT = process.env.PORT || 3001;
-    app.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
-    });
+    if (require.main === module) {
+      const PORT = process.env.PORT || 3001;
+      app.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}`);
+      });
+    }
   } catch (error) {
     console.error('Error starting server:', error);
     process.exit(1);
   }
 };
 
-startServer();
+if (require.main === module) {
+  startServer();
+}
+
+export default app;
