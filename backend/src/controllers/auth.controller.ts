@@ -8,9 +8,19 @@ export const register = async (req: Request, res: Response) => {
   try {
     const { username, email, password } = req.body;
 
+    if (!username || !email || !password) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Username, email, and password are required' 
+      });
+    }
+
     // Validate email domain
     if (!email.endsWith('@beforest.co')) {
-      return res.status(400).json({ message: 'Only @beforest.co email addresses are allowed' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Only @beforest.co email addresses are allowed' 
+      });
     }
 
     const userRepository = getRepository(User);
@@ -22,6 +32,7 @@ export const register = async (req: Request, res: Response) => {
 
     if (existingUser) {
       return res.status(400).json({
+        success: false,
         message: existingUser.username === username ? 'Username already exists' : 'Email already registered',
       });
     }
@@ -49,9 +60,12 @@ export const register = async (req: Request, res: Response) => {
       username,
       email,
     });
-  } catch (error) {
-    console.error('Registration error:', error);
-    return res.status(500).json({ message: 'Registration failed' });
+  } catch (err) {
+    console.error('Registration error:', err);
+    return res.status(500).json({ 
+      success: false,
+      message: 'Registration failed. Please try again.' 
+    });
   }
 };
 
@@ -59,40 +73,52 @@ export const verifyEmail = async (req: Request, res: Response) => {
   try {
     const { email, otp } = req.body;
 
-    // Validate OTP
-    const isValid = validateOTP(email, otp);
-    if (!isValid) {
-      return res.status(400).json({ message: 'Invalid or expired OTP' });
+    if (!email || !otp) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Email and OTP are required' 
+      });
     }
 
-    // Update user verification status
+    const isValid = validateOTP(email, otp);
+    if (!isValid) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid or expired OTP' 
+      });
+    }
+
     const userRepository = getRepository(User);
     const user = await userRepository.findOne({ where: { email } });
 
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'User not found' 
+      });
     }
 
     user.isVerified = true;
     await userRepository.save(user);
 
-    // Generate JWT token
     const token = generateToken(user);
 
-    return res.status(200).json({
+    return res.json({
       success: true,
       message: 'Email verified successfully',
       token,
       user: {
-        id: user.id,
         username: user.username,
         email: user.email,
         isAdmin: user.isAdmin,
       },
     });
-  } catch (error) {
-    console.error('Email verification error:', error);
-    return res.status(500).json({ message: 'Email verification failed' });
+  } catch (err) {
+    console.error('Email verification error:', err);
+    return res.status(500).json({ 
+      success: false,
+      message: 'Email verification failed. Please try again.' 
+    });
   }
 };
 
@@ -100,70 +126,98 @@ export const login = async (req: Request, res: Response) => {
   try {
     const { username, password } = req.body;
 
+    if (!username || !password) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Username and password are required' 
+      });
+    }
+
     const userRepository = getRepository(User);
-    const user = await userRepository.findOne({
-      where: { username },
-    });
+    const user = await userRepository.findOne({ where: { username } });
 
     if (!user) {
-      return res.status(401).json({ message: 'Invalid username or password' });
+      return res.status(401).json({ 
+        success: false,
+        message: 'Invalid username or password' 
+      });
     }
 
-    // Check if user is verified
     if (!user.isVerified) {
-      return res.status(401).json({ message: 'Please verify your email before logging in' });
+      return res.status(401).json({ 
+        success: false,
+        message: 'Please verify your email before logging in' 
+      });
     }
 
-    // Verify password
     const isValidPassword = await comparePasswords(password, user.password);
     if (!isValidPassword) {
-      return res.status(401).json({ message: 'Invalid username or password' });
+      return res.status(401).json({ 
+        success: false,
+        message: 'Invalid username or password' 
+      });
     }
 
-    // Generate JWT token
     const token = generateToken(user);
 
-    return res.status(200).json({
+    return res.json({
       success: true,
       token,
       user: {
-        id: user.id,
         username: user.username,
         email: user.email,
         isAdmin: user.isAdmin,
       },
     });
-  } catch (error) {
-    console.error('Login error:', error);
-    return res.status(500).json({ message: 'Login failed' });
+  } catch (err) {
+    console.error('Login error:', err);
+    return res.status(500).json({ 
+      success: false,
+      message: 'Login failed. Please try again.' 
+    });
   }
 };
 
 export const resendOTP = async (req: Request, res: Response) => {
   try {
-    const { email } = req.body;
+    const { email, username } = req.body;
+
+    if (!email || !username) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Email and username are required' 
+      });
+    }
 
     const userRepository = getRepository(User);
-    const user = await userRepository.findOne({ where: { email } });
+    const user = await userRepository.findOne({ where: { email, username } });
 
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'User not found' 
+      });
     }
 
     if (user.isVerified) {
-      return res.status(400).json({ message: 'Email is already verified' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Email is already verified' 
+      });
     }
 
-    // Generate and send new OTP
-    const newOtp = generateOTP();
-    await sendOTPEmail(email, newOtp, user.username);
+    const otp = generateOTP();
+    await sendOTPEmail(email, otp, username);
 
-    return res.status(200).json({
+    return res.json({
       success: true,
-      message: 'OTP resent successfully',
+      message: 'OTP sent successfully',
     });
-  } catch (error) {
-    console.error('Resend OTP error:', error);
-    return res.status(500).json({ message: 'Failed to resend OTP' });
+  } catch (err) {
+    console.error('Resend OTP error:', err);
+    return res.status(500).json({ 
+      success: false,
+      message: 'Failed to resend OTP. Please try again.' 
+    });
   }
 };

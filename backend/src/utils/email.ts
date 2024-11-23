@@ -49,10 +49,9 @@ export const sendOTPEmail = async (email: string, otp: string, username: string)
     activeOTPs.set(email, {
       code: otp,
       email,
-      expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes
+      expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
     });
 
-    // Send POST request to n8n webhook
     const webhookUrl = process.env.N8N_WEBHOOK_URL;
     if (!webhookUrl) {
       throw new Error('N8N webhook URL not configured');
@@ -65,16 +64,16 @@ export const sendOTPEmail = async (email: string, otp: string, username: string)
       },
       body: JSON.stringify({
         email,
+        username,
         otp,
-        username
-      })
+      }),
     });
 
     if (!response.ok) {
       throw new Error('Failed to send OTP email');
     }
   } catch (error) {
-    console.error('Error sending email:', error);
+    console.error('Error sending OTP email:', error);
     throw new Error('Failed to send OTP email');
   }
 };

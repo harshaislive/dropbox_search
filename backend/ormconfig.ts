@@ -3,9 +3,9 @@ import { User } from './src/entities/User';
 
 const config: ConnectionOptions = {
   type: 'postgres',
-  url: process.env.DATABASE_URL, // This will be automatically set by Railway
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  synchronize: process.env.NODE_ENV !== 'production',
+  url: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
+  synchronize: true, // This will automatically create tables
   logging: process.env.NODE_ENV !== 'production',
   entities: [User],
   migrations: ['src/migrations/**/*.ts'],
