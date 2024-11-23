@@ -1,6 +1,18 @@
 const express = require('express');
 const path = require('path');
+const cors = require('cors');
 const app = express();
+
+// Configure CORS
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production'
+    ? ['https://dropboxsearch-production.up.railway.app']
+    : 'http://localhost:5173',
+  credentials: true
+}));
+
+// Parse JSON bodies
+app.use(express.json());
 
 // Serve static files from the frontend build directory
 app.use(express.static(path.join(__dirname, '../dist')));

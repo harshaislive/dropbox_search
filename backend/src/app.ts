@@ -9,7 +9,7 @@ const app = express();
 // Configure CORS
 app.use(cors({
   origin: process.env.NODE_ENV === 'production'
-    ? ['https://dropbox-search-frontend.up.railway.app', 'http://localhost:5173']
+    ? ['https://dropboxsearch-production.up.railway.app']
     : 'http://localhost:5173',
   credentials: true,
 }));
@@ -23,7 +23,7 @@ app.get('/', (_req, res) => {
 });
 
 // Routes
-app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
 
 // Error handling middleware
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
@@ -39,19 +39,13 @@ const startServer = async () => {
   try {
     await createConnection();
     console.log('Database connected successfully');
-
-    if (require.main === module) {
-      const PORT = process.env.PORT || 3001;
-      app.listen(PORT, () => {
-        console.log(`Server is running on port ${PORT}`);
-      });
-    }
   } catch (error) {
-    console.error('Error starting server:', error);
+    console.error('Error connecting to database:', error);
     process.exit(1);
   }
 };
 
+// Start server if running directly
 if (require.main === module) {
   startServer();
 }
