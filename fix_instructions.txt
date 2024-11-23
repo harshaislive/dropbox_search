@@ -1,0 +1,191 @@
+1. **Issue Description**:
+   - **Location**: DropboxService class, handleApiCall method in src/services/api.ts
+   - **Explanation**: The current token refresh mechanism only retries the current request when a token expires, but doesn't handle batch operations properly. This can lead to inconsistent states where some requests in a batch fail due to token expiration while others succeed.
+   - **Recommendation**: Implement a more robust token refresh mechanism with the following changes:
+     ```typescript
+     private async handleApiCall<T>(apiCall: (client: Dropbox) => Promise<DropboxResponse<T>>): Promise<T> {
+       const executeWithRetry = async (retryCount = 0): Promise<T> => {
+         try {
+           const client = await this.getDropboxClient();
+           const response = await apiCall(client);
+           return response.result;
+         } catch (error: any) {
+           if (error?.status === 401 && retryCount < 1) {
+             console.log('Token expired, refreshing...');
+             // Invalidate both token and client
+             this.accessToken = null;
+             this.dropbox = null;
+             // Retry the operation with refreshed token
+             return executeWithRetry(retryCount + 1);
+           }
+           throw error;
+         }
+       };
+       return executeWithRetry();
+     }
+     ```
+
+[Previous recommendations 2-8 remain unchanged...]
+
+9. **Issue Description**:
+   - **Location**: ImagePreviewModal component in src/components/ImagePreviewModal.tsx
+   - **Explanation**: The modal doesn't handle loading states or errors properly, potentially showing blank states to users.
+   - **Recommendation**: Implement proper loading and error states:
+     ```typescript
+     import React, { useEffect, useState } from 'react';
+     import { X, AlertCircle, Loader } from 'lucide-react';
+
+     interface ImagePreviewModalProps {
+       imageUrl: string;
+       isOpen: boolean;
+       onClose: () => void;
+       fileName: string;
+       isVideo?: boolean;
+     }
+
+     export const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({
+       imageUrl,
+       isOpen,
+       onClose,
+       fileName,
+       isVideo = false,
+     }) => {
+       const [isLoading, setIsLoading] = useState(true);
+       const [error, setError] = useState<string | null>(null);
+
+       useEffect(() => {
+         const handleEscape = (e: KeyboardEvent) => {
+           if (e.key === 'Escape') {
+             onClose();
+           }
+         };
+         
+         if (isOpen) {
+           document.addEventListener('keydown', handleEscape);
+           document.body.style.overflow = 'hidden';
+           // Reset states when modal opens
+           setIsLoading(true);
+           setError(null);
+         }
+         
+         return () => {
+           document.removeEventListener('keydown', handleEscape);
+           document.body.style.overflow = 'unset';
+         };
+       }, [isOpen, onClose]);
+
+       if (!isOpen) return null;
+
+       const handleBackdropClick = (e: React.MouseEvent) => {
+         if (e.target === e.currentTarget) {
+           onClose();
+         }
+       };
+
+       const handleLoadSuccess = () => {
+         setIsLoading(false);
+         setError(null);
+       };
+
+       const handleLoadError = () => {
+         setIsLoading(false);
+         setError('Failed to load media. Please try again.');
+       };
+
+       return (
+         <div 
+           className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm"
+           onClick={handleBackdropClick}
+         >
+           <div className="relative max-w-5xl w-[95%] max-h-[90vh] bg-white rounded-lg overflow-hidden">
+             <button
+               onClick={onClose}
+               className="absolute top-4 right-4 z-10 p-2 bg-black/50 rounded-full text-white hover:bg-black/75 transition-all"
+             >
+               <X size={24} />
+             </button>
+             
+             <div className="w-full h-full flex flex-col">
+               <div className="text-lg font-medium text-gray-900 p-4 border-b bg-white">
+                 {fileName}
+               </div>
+               <div className="flex-1 min-h-0 flex items-center justify-center p-4 bg-gray-100 relative">
+                 {/* Loading Spinner */}
+                 {isLoading && (
+                   <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                     <div className="flex flex-col items-center space-y-4">
+                       <Loader className="w-8 h-8 animate-spin text-blue-500" />
+                       <p className="text-sm text-gray-600">Loading {isVideo ? 'video' : 'image'}...</p>
+                     </div>
+                   </div>
+                 )}
+
+                 {/* Error State */}
+                 {error && (
+                   <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                     <div className="flex flex-col items-center space-y-4 text-red-500">
+                       <AlertCircle className="w-8 h-8" />
+                       <p className="text-sm">{error}</p>
+                       <button
+                         onClick={() => {
+                           setIsLoading(true);
+                           setError(null);
+                         }}
+                         className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                       >
+                         Retry
+                       </button>
+                     </div>
+                   </div>
+                 )}
+
+                 {/* Media Content */}
+                 {isVideo ? (
+                   <video
+                     key={imageUrl}
+                     src={imageUrl}
+                     controls
+                     className={`max-w-full max-h-[75vh] rounded-lg shadow-lg ${isLoading ? 'invisible' : 'visible'}`}
+                     autoPlay
+                     playsInline
+                     controlsList="nodownload"
+                     onLoadStart={() => setIsLoading(true)}
+                     onCanPlay={handleLoadSuccess}
+                     onError={handleLoadError}
+                   >
+                     Your browser does not support the video tag.
+                   </video>
+                 ) : (
+                   <img
+                     src={imageUrl}
+                     alt={fileName}
+                     className={`max-w-full max-h-[75vh] rounded-lg shadow-lg object-contain ${isLoading ? 'invisible' : 'visible'}`}
+                     onLoad={handleLoadSuccess}
+                     onError={handleLoadError}
+                   />
+                 )}
+               </div>
+             </div>
+           </div>
+         </div>
+       );
+     };
+     ```
+
+These changes will significantly improve the user experience by:
+1. Adding proper loading states with a spinner
+2. Handling errors gracefully with clear error messages
+3. Providing a retry mechanism for failed loads
+4. Maintaining visual consistency during loading and error states
+5. Preventing layout shifts when media loads
+
+After implementing these changes:
+1. Test the modal with both images and videos
+2. Verify loading states are shown appropriately
+3. Test error handling by intentionally using invalid URLs
+4. Confirm that the retry mechanism works correctly
+5. Check that the modal maintains proper layout during all states
+
+Command to send to Aider:
+```
+aider --model anthropic/claude-3-5-sonnet-20241022 --no-pretty --message-file fix_instructions.txt src/services/api.ts src/components/SearchResults.tsx src/App.tsx src/components/ImagePreviewModal.tsx
