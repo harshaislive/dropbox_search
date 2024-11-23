@@ -17,8 +17,8 @@ app.use(express.json());
 // Import and use the backend app
 const backendApp = require('./dist/app').default;
 
-// Mount the backend app at the root URL
-app.use('/', backendApp);
+// Mount the backend app at /auth prefix
+app.use('/auth', backendApp);
 
 // Serve static files from the frontend build directory
 app.use(express.static(path.join(__dirname, '../dist')));

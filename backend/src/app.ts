@@ -17,13 +17,8 @@ app.use(cors({
 // Parse JSON bodies
 app.use(express.json());
 
-// Health check endpoint
-app.get('/', (_req, res) => {
-  res.json({ status: 'ok' });
-});
-
 // Routes
-app.use('/auth', authRoutes);
+app.use('/', authRoutes);
 
 // Error handling middleware
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
