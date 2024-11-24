@@ -216,12 +216,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(passwordValidation.message);
       }
 
-      // Check existing users
-      if (userStore.has(email)) {
-        throw new Error('Email already registered');
+      // Check existing users with clear messages
+      const existingUserByEmail = userStore.has(email);
+      const existingUserByUsername = usernameIndex.has(username);
+
+      if (existingUserByEmail && existingUserByUsername) {
+        throw new Error('Account already exists. Please login instead.');
       }
-      if (usernameIndex.has(username)) {
-        throw new Error('Username already taken');
+      
+      if (existingUserByEmail) {
+        throw new Error('Email is already registered. Please use a different email or login.');
+      }
+      
+      if (existingUserByUsername) {
+        throw new Error('Username is already taken. Please choose a different username.');
       }
 
       // Store user data
