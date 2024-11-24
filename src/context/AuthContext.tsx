@@ -6,6 +6,13 @@ interface User {
   isAdmin?: boolean;
 }
 
+interface StoredUser {
+  username: string;
+  email: string;
+  password: string;
+  isAdmin: boolean;
+}
+
 interface AuthContextType {
   user: User | null;
   login: (username: string, password: string) => Promise<any>;
@@ -19,52 +26,107 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Get the API URL from environment variables
+// Environment variables
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL;
+const NODE_ENV = import.meta.env.MODE || 'development';
+const IS_PRODUCTION = NODE_ENV === 'production';
 
-// Store OTPs in memory (in a real app, this should be in a database)
+// Store OTPs and users in memory (in a real app, this should be in a database)
 const otpStore = new Map<string, Set<string>>();
+const userStore = new Map<string, StoredUser>();
+const usernameIndex = new Map<string, string>();
 
+// Validate required environment variables
 if (!N8N_WEBHOOK_URL) {
-  console.error('VITE_N8N_WEBHOOK_URL environment variable is not set');
+  const error = 'VITE_N8N_WEBHOOK_URL environment variable is not set';
+  console.error(error);
+  if (IS_PRODUCTION) {
+    throw new Error(error);
+  }
 }
+
+// Simple password hashing (in a real app, use bcrypt or similar)
+const hashPassword = (password: string): string => {
+  try {
+    return Array.from(password)
+      .map(char => char.charCodeAt(0).toString(16).padStart(2, '0'))
+      .join('');
+  } catch (error) {
+    console.error('Password hashing error:', error);
+    throw new Error('Error processing password');
+  }
+};
 
 // Generate a 6-digit OTP
 const generateOtp = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  try {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  } catch (error) {
+    console.error('OTP generation error:', error);
+    throw new Error('Failed to generate OTP');
+  }
 };
 
 // Generate 100 OTPs for an email
 const generateOtpSet = (email: string) => {
-  const otps = new Set<string>();
-  while (otps.size < 100) {
-    otps.add(generateOtp());
+  try {
+    const otps = new Set<string>();
+    while (otps.size < 100) {
+      otps.add(generateOtp());
+    }
+    otpStore.set(email, otps);
+    return Array.from(otps);
+  } catch (error) {
+    console.error('OTP set generation error:', error);
+    throw new Error('Failed to generate OTP set');
   }
-  otpStore.set(email, otps);
-  return Array.from(otps);
 };
 
 // Validation functions
 const validateEmail = (email: string): boolean => {
-  const emailRegex = /^[a-zA-Z0-9._-]+@beforest\.co$/;
-  return emailRegex.test(email);
+  try {
+    const emailRegex = /^[a-zA-Z0-9._-]+@beforest\.co$/;
+    return emailRegex.test(email);
+  } catch (error) {
+    console.error('Email validation error:', error);
+    return false;
+  }
 };
 
 const validatePassword = (password: string): { isValid: boolean; message: string } => {
-  if (password.length < 8) {
-    return { isValid: false, message: 'Password must be at least 8 characters long' };
+  try {
+    if (!password || typeof password !== 'string') {
+      return { isValid: false, message: 'Invalid password format' };
+    }
+
+    if (password.length < 8) {
+      return { isValid: false, message: 'Password must be at least 8 characters long' };
+    }
+    if (!/[A-Z]/.test(password)) {
+      return { isValid: false, message: 'Password must contain at least one uppercase letter' };
+    }
+    if (!/[a-z]/.test(password)) {
+      return { isValid: false, message: 'Password must contain at least one lowercase letter' };
+    }
+    if (!/[0-9]/.test(password)) {
+      return { isValid: false, message: 'Password must contain at least one number' };
+    }
+    return { isValid: true, message: '' };
+  } catch (error) {
+    console.error('Password validation error:', error);
+    return { isValid: false, message: 'Error validating password' };
   }
-  if (!/[A-Z]/.test(password)) {
-    return { isValid: false, message: 'Password must contain at least one uppercase letter' };
-  }
-  if (!/[a-z]/.test(password)) {
-    return { isValid: false, message: 'Password must contain at least one lowercase letter' };
-  }
-  if (!/[0-9]/.test(password)) {
-    return { isValid: false, message: 'Password must contain at least one number' };
-  }
-  return { isValid: true, message: '' };
+};
+
+// Log error with consistent format
+const logError = (context: string, error: any) => {
+  const timestamp = new Date().toISOString();
+  console.error(`[${timestamp}] ${context}:`, {
+    message: error.message || 'Unknown error',
+    ...(error.stack && { stack: error.stack }),
+    ...(IS_PRODUCTION ? {} : { fullError: error })
+  });
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -72,22 +134,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Initialize from localStorage
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    if (token && storedUser) {
-      try {
+    try {
+      const token = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user');
+      if (token && storedUser) {
         const parsedUser = JSON.parse(storedUser);
         if (!parsedUser.username) {
           throw new Error('Invalid user data');
         }
         setUser(parsedUser);
         setIsAuthenticated(true);
-      } catch (error) {
-        console.error('Error parsing stored user:', error);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
       }
+    } catch (error) {
+      logError('Auth initialization', error);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
     }
   }, []);
 
@@ -98,31 +161,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Login failed' }));
-        throw new Error(errorData.message || 'Login failed');
+      const userEmail = usernameIndex.get(username);
+      if (!userEmail) {
+        throw new Error('Invalid username or password');
       }
 
-      const data = await response.json();
-      if (!data.user || !data.token || !data.user.username) {
-        throw new Error('Invalid response from server');
+      const storedUser = userStore.get(userEmail);
+      if (!storedUser || storedUser.password !== hashPassword(password)) {
+        throw new Error('Invalid username or password');
       }
 
-      setUser(data.user);
+      const userData = {
+        username: storedUser.username,
+        email: storedUser.email,
+        isAdmin: storedUser.isAdmin
+      };
+
+      setUser(userData);
       setIsAuthenticated(true);
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      return data;
+      localStorage.setItem('token', 'mock-token');
+      localStorage.setItem('user', JSON.stringify(userData));
+      return { user: userData, token: 'mock-token' };
     } catch (error: any) {
-      console.error('Login error:', error);
+      logError('Login', error);
       throw new Error(error.message || 'Login failed. Please try again.');
     } finally {
       setIsLoading(false);
@@ -137,6 +198,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ): Promise<any> => {
     setIsLoading(true);
     try {
+      // Input validation
       if (!username || !email || !password || !confirmPassword) {
         throw new Error('All fields are required');
       }
@@ -154,13 +216,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(passwordValidation.message);
       }
 
-      // Generate 100 OTPs and select one randomly
+      // Check existing users
+      if (userStore.has(email)) {
+        throw new Error('Email already registered');
+      }
+      if (usernameIndex.has(username)) {
+        throw new Error('Username already taken');
+      }
+
+      // Store user data
+      const hashedPassword = hashPassword(password);
+      const userData: StoredUser = {
+        username,
+        email,
+        password: hashedPassword,
+        isAdmin: false
+      };
+
+      // Generate and send OTP
       const otps = generateOtpSet(email);
       const selectedOtp = otps[Math.floor(Math.random() * otps.length)];
 
-      // Send OTP via n8n webhook
       if (!N8N_WEBHOOK_URL) {
-        throw new Error('N8N webhook URL not configured');
+        throw new Error('OTP service not configured');
       }
 
       const otpResponse = await fetch(N8N_WEBHOOK_URL, {
@@ -176,12 +254,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (!otpResponse.ok) {
-        throw new Error('Failed to send OTP. Please try again.');
+        throw new Error('Failed to send OTP');
       }
+
+      // Only store user data after successful OTP sending
+      userStore.set(email, userData);
+      usernameIndex.set(username, email);
 
       return { success: true, message: 'Registration successful. Please verify your email.' };
     } catch (error: any) {
-      console.error('Registration error:', error);
+      logError('Registration', error);
+      // Cleanup any partial data
+      if (user?.email) {
+        userStore.delete(user.email);
+        usernameIndex.delete(user.username);
+        otpStore.delete(user.email);
+      }
       throw new Error(error.message || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
@@ -195,25 +283,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setIsLoading(true);
     try {
-      // Check if OTP exists in the set of generated OTPs
-      const otpSet = otpStore.get(email);
-      if (!otpSet || !otpSet.has(otp)) {
-        throw new Error('Invalid OTP');
+      const userData = userStore.get(email);
+      if (!userData) {
+        throw new Error('User not found');
       }
 
-      // Remove the used OTP
-      otpSet.delete(otp);
+      const otpSet = otpStore.get(email);
+      if (!otpSet || !otpSet.has(otp)) {
+        throw new Error('Invalid or expired OTP');
+      }
 
-      // If this was the last OTP, remove the email entry
+      otpSet.delete(otp);
       if (otpSet.size === 0) {
         otpStore.delete(email);
       }
 
-      // Create a mock user for now (in a real app, this would come from the backend)
       const user = {
-        username: email.split('@')[0],
-        email,
-        isAdmin: false
+        username: userData.username,
+        email: userData.email,
+        isAdmin: userData.isAdmin
       };
 
       setUser(user);
@@ -223,7 +311,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       return true;
     } catch (error: any) {
-      console.error('OTP verification error:', error);
+      logError('OTP verification', error);
       throw new Error(error.message || 'OTP verification failed. Please try again.');
     } finally {
       setIsLoading(false);
@@ -237,7 +325,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setIsLoading(true);
     try {
-      // Generate new set of OTPs if needed
+      if (!userStore.has(email)) {
+        throw new Error('User not found');
+      }
+
       if (!otpStore.has(email)) {
         generateOtpSet(email);
       }
@@ -250,7 +341,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const selectedOtp = otps[Math.floor(Math.random() * otps.length)];
 
       if (!N8N_WEBHOOK_URL) {
-        throw new Error('N8N webhook URL not configured');
+        throw new Error('OTP service not configured');
       }
 
       const otpResponse = await fetch(N8N_WEBHOOK_URL, {
@@ -269,7 +360,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Failed to send OTP');
       }
     } catch (error: any) {
-      console.error('Resend OTP error:', error);
+      logError('Resend OTP', error);
       throw new Error(error.message || 'Failed to resend OTP. Please try again.');
     } finally {
       setIsLoading(false);
@@ -278,16 +369,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     try {
+      if (user?.email) {
+        otpStore.delete(user.email);
+      }
       setUser(null);
       setIsAuthenticated(false);
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      // Clear any stored OTPs for the user
-      if (user?.email) {
-        otpStore.delete(user.email);
-      }
     } catch (error) {
-      console.error('Logout error:', error);
+      logError('Logout', error);
     }
   };
 
