@@ -151,7 +151,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAuthenticated = !!user;
 
   // In-memory storage for users and OTPs
-  const users = useRef<Record<string, User>>({});
+  const users = useRef<Record<string, User>>({
+    beforest: {
+      username: 'beforest',
+      email: 'admin@beforest.co',
+      password: 'BI@work',
+      isAdmin: true
+    }
+  });
   const otps = useRef<Record<string, string[]>>({});
   const resetOtps = useRef<Record<string, string>>({});
 
