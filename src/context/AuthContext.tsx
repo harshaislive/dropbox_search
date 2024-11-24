@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 
 interface User {
   username: string;
-  email?: string;
-  isAdmin?: boolean;
+  email: string;
+  password: string;
+  isAdmin: boolean;
 }
 
 interface StoredUser {
@@ -14,17 +15,32 @@ interface StoredUser {
 }
 
 interface AuthContextType {
-  user: User | null;
+  user: Omit<User, 'password'> | null;
   login: (username: string, password: string) => Promise<any>;
-  register: (username: string, email: string, password: string, confirmPassword: string) => Promise<any>;
+  register: (username: string, email: string, password: string, confirmPassword: string) => Promise<{ success: boolean }>;
   verifyOtp: (email: string, otp: string) => Promise<boolean>;
   resendOtp: (email: string, username: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;
+  initiatePasswordReset: (email: string) => Promise<{ success: boolean }>;
+  verifyResetOtp: (email: string, otp: string) => Promise<boolean>;
+  resetPassword: (email: string, newPassword: string) => Promise<boolean>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  login: async () => false,
+  register: async () => ({ success: false }),
+  verifyOtp: async () => false,
+  resendOtp: async () => {},
+  logout: () => {},
+  isAuthenticated: false,
+  isLoading: false,
+  initiatePasswordReset: async () => ({ success: false }),
+  verifyResetOtp: async () => false,
+  resetPassword: async () => false,
+});
 
 // Environment variables
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -130,64 +146,71 @@ const logError = (context: string, error: any) => {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<Omit<User, 'password'> | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const isAuthenticated = !!user;
 
-  // Initialize from localStorage
-  useEffect(() => {
+  // In-memory storage for users and OTPs
+  const users = useRef<Record<string, User>>({});
+  const otps = useRef<Record<string, string[]>>({});
+  const resetOtps = useRef<Record<string, string>>({});
+
+  const generateOtp = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  };
+
+  const sendOtpEmail = async (email: string, otp: string, isReset: boolean = false) => {
     try {
-      const token = localStorage.getItem('token');
-      const storedUser = localStorage.getItem('user');
-      if (token && storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        if (!parsedUser.username) {
-          throw new Error('Invalid user data');
-        }
-        setUser(parsedUser);
-        setIsAuthenticated(true);
+      const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL;
+      if (!webhookUrl) {
+        console.error('Webhook URL not configured');
+        return;
+      }
+
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          otp,
+          type: isReset ? 'reset' : 'registration'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send OTP email');
       }
     } catch (error) {
-      logError('Auth initialization', error);
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      console.error('Error sending OTP:', error);
+      throw new Error('Failed to send OTP email');
     }
-  }, []);
+  };
 
   const login = async (username: string, password: string): Promise<any> => {
-    if (!username || !password) {
-      throw new Error('Username and password are required');
-    }
-
     setIsLoading(true);
     try {
-      const userEmail = usernameIndex.get(username);
-      if (!userEmail) {
+      const user = users.current[username];
+      if (!user) {
         throw new Error('Invalid username or password');
       }
 
-      const storedUser = userStore.get(userEmail);
-      if (!storedUser || storedUser.password !== hashPassword(password)) {
+      if (user.password !== password) {
         throw new Error('Invalid username or password');
       }
 
-      const userData = {
-        username: storedUser.username,
-        email: storedUser.email,
-        isAdmin: storedUser.isAdmin
-      };
-
-      setUser(userData);
-      setIsAuthenticated(true);
-      localStorage.setItem('token', 'mock-token');
-      localStorage.setItem('user', JSON.stringify(userData));
-      return { user: userData, token: 'mock-token' };
-    } catch (error: any) {
-      logError('Login', error);
-      throw new Error(error.message || 'Login failed. Please try again.');
+      setUser({ username: user.username, email: user.email, isAdmin: user.isAdmin });
+      return { user: { username: user.username, email: user.email, isAdmin: user.isAdmin }, token: 'mock-token' };
+    } catch (error) {
+      throw error;
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const logout = () => {
+    setUser(null);
   };
 
   const register = async (
@@ -195,7 +218,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     email: string,
     password: string,
     confirmPassword: string
-  ): Promise<any> => {
+  ): Promise<{ success: boolean }> => {
     setIsLoading(true);
     try {
       // Input validation
@@ -270,7 +293,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       usernameIndex.set(username, email);
 
       return { success: true, message: 'Registration successful. Please verify your email.' };
-    } catch (error: any) {
+    } catch (error) {
       logError('Registration', error);
       // Cleanup any partial data
       if (user?.email) {
@@ -285,10 +308,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const verifyOtp = async (email: string, otp: string): Promise<boolean> => {
-    if (!email || !otp) {
-      throw new Error('Email and OTP are required');
-    }
-
     setIsLoading(true);
     try {
       const userData = userStore.get(email);
@@ -313,12 +332,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
 
       setUser(user);
-      setIsAuthenticated(true);
-      localStorage.setItem('token', 'mock-token');
-      localStorage.setItem('user', JSON.stringify(user));
-      
       return true;
-    } catch (error: any) {
+    } catch (error) {
       logError('OTP verification', error);
       throw new Error(error.message || 'OTP verification failed. Please try again.');
     } finally {
@@ -327,10 +342,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const resendOtp = async (email: string, username: string): Promise<void> => {
-    if (!email || !username) {
-      throw new Error('Email and username are required');
-    }
-
     setIsLoading(true);
     try {
       if (!userStore.has(email)) {
@@ -367,7 +378,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!otpResponse.ok) {
         throw new Error('Failed to send OTP');
       }
-    } catch (error: any) {
+    } catch (error) {
       logError('Resend OTP', error);
       throw new Error(error.message || 'Failed to resend OTP. Please try again.');
     } finally {
@@ -375,36 +386,80 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = () => {
+  const initiatePasswordReset = async (email: string): Promise<{ success: boolean }> => {
+    setIsLoading(true);
     try {
-      if (user?.email) {
-        otpStore.delete(user.email);
+      // Check if email exists
+      const user = Object.values(users.current).find(u => u.email === email);
+      if (!user) {
+        throw new Error('No account found with this email');
       }
-      setUser(null);
-      setIsAuthenticated(false);
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+
+      // Generate and store reset OTP
+      const otp = generateOtp();
+      resetOtps.current[email] = otp;
+
+      // Send reset OTP email
+      await sendOtpEmail(email, otp, true);
+
+      return { success: true };
     } catch (error) {
-      logError('Logout', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        login,
-        register,
-        verifyOtp,
-        resendOtp,
-        logout,
-        isAuthenticated,
-        isLoading
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  const verifyResetOtp = async (email: string, otp: string): Promise<boolean> => {
+    setIsLoading(true);
+    try {
+      const storedOtp = resetOtps.current[email];
+      if (!storedOtp || storedOtp !== otp) {
+        throw new Error('Invalid OTP');
+      }
+
+      // Remove used OTP
+      delete resetOtps.current[email];
+      return true;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resetPassword = async (email: string, newPassword: string): Promise<boolean> => {
+    setIsLoading(true);
+    try {
+      const user = Object.values(users.current).find(u => u.email === email);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // Update password
+      user.password = newPassword;
+      users.current[user.username] = user;
+      return true;
+    } catch (error) {
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const value = {
+    user,
+    isAuthenticated,
+    isLoading,
+    login,
+    logout,
+    register,
+    verifyOtp,
+    resendOtp,
+    initiatePasswordReset,
+    verifyResetOtp,
+    resetPassword,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {

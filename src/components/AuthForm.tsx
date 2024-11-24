@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { ResetPasswordForm } from './ResetPasswordForm'; // Assuming ResetPasswordForm is in the same directory
 
 export const AuthForm: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -12,6 +13,7 @@ export const AuthForm: React.FC = () => {
   const [showOtpField, setShowOtpField] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
   const [registrationData, setRegistrationData] = useState<{ email: string; username: string } | null>(null);
+  const [showResetPassword, setShowResetPassword] = useState(false);
   const { login, register, verifyOtp, resendOtp, isLoading } = useAuth();
 
   // Timer effect for OTP resend
@@ -65,12 +67,25 @@ export const AuthForm: React.FC = () => {
           return;
         }
 
-        const response = await register(username, email, password, confirmPassword);
-        if (response.success) {
-          setRegistrationData({ email, username });
-          setShowOtpField(true);
-          setTimeLeft(300); // 5 minutes
-          setError('OTP has been sent to your email');
+        try {
+          const response = await register(username, email, password, confirmPassword);
+          if (response.success) {
+            setRegistrationData({ email, username });
+            setShowOtpField(true);
+            setTimeLeft(300); // 5 minutes
+            setError('OTP has been sent to your email');
+          }
+        } catch (err: any) {
+          // Check if it's an existing account error
+          if (err.message?.includes('Account already exists')) {
+            setError('Account already exists. Click "Sign in" below to login.');
+          } else if (err.message?.includes('Email is already registered')) {
+            setError('This email is already registered. Click "Sign in" below to login.');
+          } else if (err.message?.includes('Username is already taken')) {
+            setError('This username is already taken. Please choose a different username.');
+          } else {
+            throw err; // Re-throw other errors
+          }
         }
       }
     } catch (err: any) {
@@ -103,6 +118,10 @@ export const AuthForm: React.FC = () => {
     setRegistrationData(null);
   };
 
+  if (showResetPassword) {
+    return <ResetPasswordForm onCancel={() => setShowResetPassword(false)} />;
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
@@ -118,6 +137,28 @@ export const AuthForm: React.FC = () => {
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          {error && (
+            <div className={`rounded-md p-4 text-sm ${
+              error.includes('OTP has been sent') || error.includes('OTP has been resent')
+                ? 'bg-green-50 text-green-700'
+                : 'bg-red-50 text-red-700'
+            }`}>
+              <p>{error}</p>
+              {error.includes('Click "Sign in"') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    switchMode();
+                    setUsername(username); // Keep the username if they entered it
+                  }}
+                  className="mt-2 text-brand hover:text-brand-dark font-medium"
+                >
+                  Click here to sign in
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="rounded-md shadow-sm -space-y-px">
             {!showOtpField ? (
               <>
@@ -149,7 +190,7 @@ export const AuthForm: React.FC = () => {
                       type="email"
                       required
                       className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-[#6b9e45] focus:border-[#6b9e45] focus:z-10 sm:text-sm"
-                      placeholder="Email (@beforest.co)"
+                      placeholder="Email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       disabled={isLoading}
@@ -220,10 +261,6 @@ export const AuthForm: React.FC = () => {
             )}
           </div>
 
-          {error && (
-            <div className="text-red-500 text-sm text-center">{error}</div>
-          )}
-
           <div className="flex flex-col space-y-4">
             <button
               type="submit"
@@ -271,6 +308,17 @@ export const AuthForm: React.FC = () => {
               </button>
             )}
           </div>
+          {isLogin && (
+            <div className="text-sm text-right">
+              <button
+                type="button"
+                onClick={() => setShowResetPassword(true)}
+                className="font-medium text-brand hover:text-brand-dark"
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
         </form>
       </div>
     </div>
