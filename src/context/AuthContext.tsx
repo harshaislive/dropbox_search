@@ -9,11 +9,10 @@ interface User {
 interface AuthContextType {
   user: User | null;
   login: (username: string, password: string) => Promise<any>;
-  register: (username: string, email: string, password: string) => Promise<any>;
-  verifyOtp: (registrationData: any, otp: string) => Promise<boolean>;
-  resendOtp: (registrationData: any) => Promise<void>;
+  register: (username: string, email: string, password: string, confirmPassword: string) => Promise<any>;
   logout: () => void;
   isAuthenticated: boolean;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,117 +26,93 @@ if (!API_URL) {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
     if (token && storedUser) {
-      setUser(JSON.parse(storedUser));
-      setIsAuthenticated(true);
+      try {
+        setUser(JSON.parse(storedUser));
+        setIsAuthenticated(true);
+      } catch (error) {
+        console.error('Error parsing stored user:', error);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
     }
   }, []);
 
   const login = async (username: string, password: string): Promise<any> => {
+    setIsLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password }),
-        credentials: 'include'
-      });
+      // For development, simulate a successful login
+      const mockUser = {
+        username,
+        email: `${username}@beforest.co`,
+        isAdmin: false
+      };
+      
+      const mockResponse = {
+        user: mockUser,
+        token: 'mock-jwt-token'
+      };
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Login failed');
-      }
-
-      const data = await response.json();
-      setUser(data.user);
+      setUser(mockResponse.user);
       setIsAuthenticated(true);
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      return data;
-    } catch (error) {
+      localStorage.setItem('token', mockResponse.token);
+      localStorage.setItem('user', JSON.stringify(mockResponse.user));
+      return mockResponse;
+    } catch (error: any) {
       console.error('Login error:', error);
-      throw error;
+      throw new Error(error.message || 'Login failed. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const register = async (username: string, email: string, password: string): Promise<any> => {
+  const register = async (
+    username: string,
+    email: string,
+    password: string,
+    confirmPassword: string
+  ): Promise<any> => {
+    setIsLoading(true);
     try {
-      // Validate email domain
+      if (password !== confirmPassword) {
+        throw new Error('Passwords do not match');
+      }
+
       if (!email.endsWith('@beforest.co')) {
         throw new Error('Only @beforest.co email addresses are allowed');
       }
 
-      const response = await fetch(`${API_URL}/api/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, email, password }),
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Registration failed');
+      if (password.length < 8) {
+        throw new Error('Password must be at least 8 characters long');
       }
 
-      const data = await response.json();
-      setUser(data.user);
-      return data;
-    } catch (error) {
+      // For development, simulate a successful registration
+      const mockUser = {
+        username,
+        email,
+        isAdmin: false
+      };
+      
+      const mockResponse = {
+        user: mockUser,
+        token: 'mock-jwt-token'
+      };
+
+      setUser(mockResponse.user);
+      setIsAuthenticated(true);
+      localStorage.setItem('token', mockResponse.token);
+      localStorage.setItem('user', JSON.stringify(mockResponse.user));
+      return mockResponse;
+    } catch (error: any) {
       console.error('Registration error:', error);
-      throw error;
-    }
-  };
-
-  const verifyOtp = async (registrationData: any, otp: string): Promise<boolean> => {
-    try {
-      const response = await fetch(`${API_URL}/api/auth/verify-email`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: registrationData.email,
-          otp,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        return true;
-      }
-      return false;
-    } catch (err) {
-      console.error('OTP verification error:', err);
-      return false;
-    }
-  };
-
-  const resendOtp = async (registrationData: any): Promise<void> => {
-    try {
-      const response = await fetch(`${API_URL}/api/auth/resend-otp`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: registrationData.email,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to resend OTP');
-      }
-    } catch (err) {
-      console.error('Resend OTP error:', err);
-      throw err;
+      throw new Error(error.message || 'Registration failed. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -154,10 +129,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         login,
         register,
-        verifyOtp,
-        resendOtp,
         logout,
         isAuthenticated,
+        isLoading
       }}
     >
       {children}
