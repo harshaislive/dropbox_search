@@ -1,9 +1,12 @@
 import React from 'react';
 import { LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { Link, useLocation } from 'react-router-dom';
 
 export const Header: React.FC = () => {
   const { user, logout, isAuthenticated } = useAuth();
+  const location = useLocation();
+  const isAdminPage = location.pathname.startsWith('/admin');
 
   return (
     <header className="bg-white shadow-sm">
@@ -23,11 +26,13 @@ export const Header: React.FC = () => {
 
           {/* Logo (Col 2) */}
           <div className="flex justify-center flex-1 sm:flex-none">
-            <img 
-              src="https://beforest.co/wp-content/uploads/2024/10/23-Beforest-Black-with-Tagline.png#6421" 
-              alt="Beforest Logo" 
-              className="h-8 sm:h-12 w-auto"
-            />
+            <Link to="/">
+              <img 
+                src="https://beforest.co/wp-content/uploads/2024/10/23-Beforest-Black-with-Tagline.png#6421" 
+                alt="Beforest Logo" 
+                className="h-8 sm:h-12 w-auto"
+              />
+            </Link>
           </div>
 
           {/* Desktop: Right section */}
@@ -47,12 +52,12 @@ export const Header: React.FC = () => {
                   {user?.isAdmin && ' (Admin)'}
                 </span>
                 {user?.isAdmin && (
-                  <a
-                    href="/admin"
+                  <Link
+                    to={isAdminPage ? "/" : "/admin/analytics"}
                     className="text-sm text-gray-600 hover:text-gray-900"
                   >
-                    Admin Panel
-                  </a>
+                    {isAdminPage ? "Back to Search" : "Admin Panel"}
+                  </Link>
                 )}
                 <button
                   onClick={logout}
