@@ -23,9 +23,27 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL;
 
+// Store OTPs in memory (in a real app, this should be in a database)
+const otpStore = new Map<string, Set<string>>();
+
 if (!N8N_WEBHOOK_URL) {
   console.error('VITE_N8N_WEBHOOK_URL environment variable is not set');
 }
+
+// Generate a 6-digit OTP
+const generateOtp = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+// Generate 100 OTPs for an email
+const generateOtpSet = (email: string) => {
+  const otps = new Set<string>();
+  while (otps.size < 100) {
+    otps.add(generateOtp());
+  }
+  otpStore.set(email, otps);
+  return Array.from(otps);
+};
 
 // Validation functions
 const validateEmail = (email: string): boolean => {
@@ -60,7 +78,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (token && storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser);
-        // Validate stored user data
         if (!parsedUser.username) {
           throw new Error('Invalid user data');
         }
@@ -95,8 +112,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       const data = await response.json();
-      
-      // Validate response data
       if (!data.user || !data.token || !data.user.username) {
         throw new Error('Invalid response from server');
       }
@@ -122,7 +137,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ): Promise<any> => {
     setIsLoading(true);
     try {
-      // Input validation
       if (!username || !email || !password || !confirmPassword) {
         throw new Error('All fields are required');
       }
@@ -140,26 +154,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(passwordValidation.message);
       }
 
-      // First, register the user
-      const response = await fetch(`${API_URL}/api/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, email, password }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Registration failed' }));
-        throw new Error(errorData.message || 'Registration failed');
-      }
-
-      const data = await response.json();
-
-      // Validate registration response
-      if (!data.success || !data.otp) {
-        throw new Error('Invalid response from server');
-      }
+      // Generate 100 OTPs and select one randomly
+      const otps = generateOtpSet(email);
+      const selectedOtp = otps[Math.floor(Math.random() * otps.length)];
 
       // Send OTP via n8n webhook
       if (!N8N_WEBHOOK_URL) {
@@ -173,8 +170,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
         body: JSON.stringify({
           email,
-          otp: data.otp,
-          username
+          username,
+          otp: selectedOtp
         })
       });
 
@@ -182,7 +179,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Failed to send OTP. Please try again.');
       }
 
-      return data;
+      return { success: true, message: 'Registration successful. Please verify your email.' };
     } catch (error: any) {
       console.error('Registration error:', error);
       throw new Error(error.message || 'Registration failed. Please try again.');
@@ -198,34 +195,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/auth/verify-otp`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, otp }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'OTP verification failed' }));
-        throw new Error(errorData.message || 'OTP verification failed');
+      // Check if OTP exists in the set of generated OTPs
+      const otpSet = otpStore.get(email);
+      if (!otpSet || !otpSet.has(otp)) {
+        throw new Error('Invalid OTP');
       }
 
-      const data = await response.json();
+      // Remove the used OTP
+      otpSet.delete(otp);
+
+      // If this was the last OTP, remove the email entry
+      if (otpSet.size === 0) {
+        otpStore.delete(email);
+      }
+
+      // Create a mock user for now (in a real app, this would come from the backend)
+      const user = {
+        username: email.split('@')[0],
+        email,
+        isAdmin: false
+      };
+
+      setUser(user);
+      setIsAuthenticated(true);
+      localStorage.setItem('token', 'mock-token');
+      localStorage.setItem('user', JSON.stringify(user));
       
-      // Validate verification response
-      if (typeof data.verified !== 'boolean') {
-        throw new Error('Invalid response from server');
-      }
-
-      if (data.verified && data.user && data.token) {
-        setUser(data.user);
-        setIsAuthenticated(true);
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-      }
-      
-      return data.verified;
+      return true;
     } catch (error: any) {
       console.error('OTP verification error:', error);
       throw new Error(error.message || 'OTP verification failed. Please try again.');
@@ -241,27 +237,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/auth/resend-otp`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Failed to resend OTP' }));
-        throw new Error(errorData.message || 'Failed to resend OTP');
+      // Generate new set of OTPs if needed
+      if (!otpStore.has(email)) {
+        generateOtpSet(email);
       }
 
-      const data = await response.json();
-
-      // Validate resend response
-      if (!data.success || !data.otp) {
-        throw new Error('Invalid response from server');
+      const otps = Array.from(otpStore.get(email) || []);
+      if (otps.length === 0) {
+        throw new Error('No OTPs available');
       }
 
-      // Send new OTP via n8n webhook
+      const selectedOtp = otps[Math.floor(Math.random() * otps.length)];
+
       if (!N8N_WEBHOOK_URL) {
         throw new Error('N8N webhook URL not configured');
       }
@@ -273,8 +260,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
         body: JSON.stringify({
           email,
-          otp: data.otp,
-          username
+          username,
+          otp: selectedOtp
         })
       });
 
@@ -295,6 +282,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAuthenticated(false);
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      // Clear any stored OTPs for the user
+      if (user?.email) {
+        otpStore.delete(user.email);
+      }
     } catch (error) {
       console.error('Logout error:', error);
     }
