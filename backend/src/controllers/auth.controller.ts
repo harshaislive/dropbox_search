@@ -4,7 +4,7 @@ import { User } from '../entities/User';
 import { generateToken, comparePasswords, generateRefreshToken, verifyRefreshToken } from '../utils/auth';
 import { generateOTP, validateOTP, sendOTPEmail } from '../utils/email';
 
-export const register = async (req: Request, res: Response) => {
+export const register = async (req: Request, res: Response): Promise<Response> => {
   try {
     const { username, email, password } = req.body;
 
@@ -69,7 +69,7 @@ export const register = async (req: Request, res: Response) => {
   }
 };
 
-export const verifyEmail = async (req: Request, res: Response) => {
+export const verifyEmail = async (req: Request, res: Response): Promise<Response> => {
   try {
     const { email, otp } = req.body;
 
@@ -122,7 +122,7 @@ export const verifyEmail = async (req: Request, res: Response) => {
   }
 };
 
-export const login = async (req: Request, res: Response) => {
+export const login = async (req: Request, res: Response): Promise<Response> => {
   try {
     const { email, password, rememberMe } = req.body;
 
@@ -181,7 +181,7 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Login successful',
       data: {
@@ -196,14 +196,14 @@ export const login = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'An error occurred during login'
     });
   }
 };
 
-export const refreshToken = async (req: Request, res: Response) => {
+export const refreshToken = async (req: Request, res: Response): Promise<Response> => {
   try {
     const refreshToken = req.cookies.refreshToken;
 
@@ -236,7 +236,7 @@ export const refreshToken = async (req: Request, res: Response) => {
     // Generate new access token
     const accessToken = generateToken(user);
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         accessToken
@@ -244,14 +244,14 @@ export const refreshToken = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Refresh token error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'An error occurred while refreshing token'
     });
   }
 };
 
-export const resendOTP = async (req: Request, res: Response) => {
+export const resendOTP = async (req: Request, res: Response): Promise<Response> => {
   try {
     const { email, username } = req.body;
 
