@@ -7,10 +7,10 @@
     "start": "node server.js",
     "build": "tsc",
     "dev": "nodemon --exec ts-node src/app.ts",
-    "typeorm": "ts-node ./node_modules/typeorm/cli.js",
-    "migration:generate": "npm run typeorm migration:generate -- -n",
-    "migration:run": "npm run typeorm migration:run",
-    "migration:revert": "npm run typeorm migration:revert"
+    "typeorm": "typeorm-ts-node-commonjs",
+    "migration:run": "npm run typeorm migration:run -- -d src/data-source.ts",
+    "migration:generate": "npm run typeorm migration:generate -- -d src/data-source.ts",
+    "migration:revert": "npm run typeorm migration:revert -- -d src/data-source.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

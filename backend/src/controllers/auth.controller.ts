@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { getRepository } from 'typeorm';
+import { AppDataSource } from '../data-source';
 import { User } from '../entities/User';
 import { generateToken, comparePasswords, generateRefreshToken, verifyRefreshToken } from '../utils/auth';
 import { generateOTP, validateOTP, sendOTPEmail } from '../utils/email';
@@ -23,7 +23,7 @@ export const register = async (req: Request, res: Response): Promise<Response> =
       });
     }
 
-    const userRepository = getRepository(User);
+    const userRepository = AppDataSource.getRepository(User);
 
     // Check if username or email already exists
     const existingUser = await userRepository.findOne({
@@ -88,7 +88,7 @@ export const verifyEmail = async (req: Request, res: Response): Promise<Response
       });
     }
 
-    const userRepository = getRepository(User);
+    const userRepository = AppDataSource.getRepository(User);
     const user = await userRepository.findOne({ where: { email } });
 
     if (!user) {
@@ -133,7 +133,7 @@ export const login = async (req: Request, res: Response): Promise<Response> => {
       });
     }
 
-    const userRepository = getRepository(User);
+    const userRepository = AppDataSource.getRepository(User);
     const user = await userRepository.findOne({ where: { email } });
 
     if (!user) {
@@ -214,7 +214,7 @@ export const refreshToken = async (req: Request, res: Response): Promise<Respons
       });
     }
 
-    const userRepository = getRepository(User);
+    const userRepository = AppDataSource.getRepository(User);
     const user = await userRepository.findOne({ where: { refreshToken } });
 
     if (!user || !user.refreshTokenExpiresAt || user.refreshTokenExpiresAt < new Date()) {
@@ -262,7 +262,7 @@ export const resendOTP = async (req: Request, res: Response): Promise<Response> 
       });
     }
 
-    const userRepository = getRepository(User);
+    const userRepository = AppDataSource.getRepository(User);
     const user = await userRepository.findOne({ where: { email, username } });
 
     if (!user) {

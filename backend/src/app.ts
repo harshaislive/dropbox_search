@@ -1,8 +1,11 @@
 import 'reflect-metadata';
 import express from 'express';
 import cors from 'cors';
-import { createConnection } from 'typeorm';
+import { AppDataSource } from './data-source';
 import authRoutes from './routes/auth.routes';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
 
@@ -29,21 +32,23 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
     ? err.message 
     : 'Something went wrong!';
     
-  res.status(500).json({ 
-    success: false,
-    message,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
+  res.status(500).json({ success: false, message });
 });
 
 // Database connection and server start
 const startServer = async () => {
   try {
-    await createConnection();
-    console.log('Database connected successfully');
+    // Initialize the database connection
+    await AppDataSource.initialize();
+    console.log('Database connection established');
+
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
   } catch (error) {
-    console.error('Error connecting to database:', error);
-    throw error; // Let the error propagate to show connection issues
+    console.error('Error during initialization:', error);
+    process.exit(1);
   }
 };
 
