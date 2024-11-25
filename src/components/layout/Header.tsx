@@ -20,7 +20,7 @@ export const Header: React.FC = () => {
           {isAuthenticated && (
             <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4">
               <a
-                href="https://beforestuploads.replit.app"
+                href="https://dropboxuploader-production.up.railway.app/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-4 py-2 bg-brand hover:bg-brand-dark text-white rounded-md transition-colors flex items-center space-x-2 text-sm sm:text-base"
