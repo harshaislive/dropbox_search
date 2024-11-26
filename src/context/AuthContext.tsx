@@ -15,7 +15,7 @@ interface StoredUser {
 
 interface AuthContextType {
   user: User | null;
-  login: (username: string, password: string) => Promise<any>;
+  login: (email: string, password: string, rememberMe: boolean) => Promise<any>;
   register: (username: string, email: string, password: string, confirmPassword: string) => Promise<any>;
   verifyOtp: (email: string, otp: string) => Promise<boolean>;
   resendOtp: (email: string, username: string) => Promise<void>;
@@ -31,11 +31,6 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL;
 const NODE_ENV = import.meta.env.MODE || 'development';
 const IS_PRODUCTION = NODE_ENV === 'production';
-
-// Store OTPs and users in memory (in a real app, this should be in a database)
-const otpStore = new Map<string, Set<string>>();
-const userStore = new Map<string, StoredUser>();
-const usernameIndex = new Map<string, string>();
 
 // Validate required environment variables
 if (!N8N_WEBHOOK_URL) {
@@ -75,7 +70,6 @@ const generateOtpSet = (email: string) => {
     while (otps.size < 100) {
       otps.add(generateOtp());
     }
-    otpStore.set(email, otps);
     return Array.from(otps);
   } catch (error) {
     console.error('OTP set generation error:', error);
@@ -131,261 +125,135 @@ const logError = (context: string, error: any) => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Initialize from localStorage
+  // Check for existing session on mount
   useEffect(() => {
-    try {
-      const token = localStorage.getItem('token');
-      const storedUser = localStorage.getItem('user');
-      if (token && storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        if (!parsedUser.username) {
-          throw new Error('Invalid user data');
+    const checkAuth = async () => {
+      try {
+        const response = await fetch(`${API_URL}/check-auth`, {
+          credentials: 'include', // Important for sending cookies
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setUser(data.user);
         }
-        setUser(parsedUser);
-        setIsAuthenticated(true);
+      } catch (error) {
+        console.error('Auth check failed:', error);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      logError('Auth initialization', error);
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-    }
+    };
+
+    checkAuth();
   }, []);
 
-  const login = async (username: string, password: string): Promise<any> => {
-    if (!username || !password) {
-      throw new Error('Username and password are required');
-    }
-
-    setIsLoading(true);
+  const login = async (email: string, password: string, rememberMe: boolean = false) => {
     try {
-      const userEmail = usernameIndex.get(username);
-      if (!userEmail) {
-        throw new Error('Invalid username or password');
+      const response = await fetch(`${API_URL}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Important for receiving cookies
+        body: JSON.stringify({ email, password, rememberMe }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Login failed');
       }
 
-      const storedUser = userStore.get(userEmail);
-      if (!storedUser || storedUser.password !== hashPassword(password)) {
-        throw new Error('Invalid username or password');
-      }
-
-      const userData = {
-        username: storedUser.username,
-        email: storedUser.email,
-        isAdmin: storedUser.isAdmin
-      };
-
-      setUser(userData);
-      setIsAuthenticated(true);
-      localStorage.setItem('token', 'mock-token');
-      localStorage.setItem('user', JSON.stringify(userData));
-      return { user: userData, token: 'mock-token' };
-    } catch (error: any) {
-      logError('Login', error);
-      throw new Error(error.message || 'Login failed. Please try again.');
-    } finally {
-      setIsLoading(false);
+      const data = await response.json();
+      setUser(data.user);
+      return data;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
     }
   };
 
-  const register = async (
-    username: string,
-    email: string,
-    password: string,
-    confirmPassword: string
-  ): Promise<any> => {
-    setIsLoading(true);
+  const register = async (username: string, email: string, password: string, confirmPassword: string) => {
     try {
-      // Input validation
-      if (!username || !email || !password || !confirmPassword) {
-        throw new Error('All fields are required');
-      }
-
       if (password !== confirmPassword) {
         throw new Error('Passwords do not match');
       }
 
-      if (!validateEmail(email)) {
-        throw new Error('Invalid email format. Only @beforest.co emails are allowed');
-      }
-
-      const passwordValidation = validatePassword(password);
-      if (!passwordValidation.isValid) {
-        throw new Error(passwordValidation.message);
-      }
-
-      // Check existing users with clear messages
-      const existingUserByEmail = userStore.has(email);
-      const existingUserByUsername = usernameIndex.has(username);
-
-      if (existingUserByEmail && existingUserByUsername) {
-        throw new Error('Account already exists. Please login instead.');
-      }
-      
-      if (existingUserByEmail) {
-        throw new Error('Email is already registered. Please use a different email or login.');
-      }
-      
-      if (existingUserByUsername) {
-        throw new Error('Username is already taken. Please choose a different username.');
-      }
-
-      // Store user data
-      const hashedPassword = hashPassword(password);
-      const userData: StoredUser = {
-        username,
-        email,
-        password: hashedPassword,
-        isAdmin: false
-      };
-
-      // Generate and send OTP
-      const otps = generateOtpSet(email);
-      const selectedOtp = otps[Math.floor(Math.random() * otps.length)];
-
-      if (!N8N_WEBHOOK_URL) {
-        throw new Error('OTP service not configured');
-      }
-
-      const otpResponse = await fetch(N8N_WEBHOOK_URL, {
+      const response = await fetch(`${API_URL}/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          email,
-          username,
-          otp: selectedOtp
-        })
+        body: JSON.stringify({ username, email, password }),
       });
 
-      if (!otpResponse.ok) {
-        throw new Error('Failed to send OTP');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Registration failed');
       }
 
-      // Only store user data after successful OTP sending
-      userStore.set(email, userData);
-      usernameIndex.set(username, email);
-
-      return { success: true, message: 'Registration successful. Please verify your email.' };
-    } catch (error: any) {
-      logError('Registration', error);
-      // Cleanup any partial data
-      if (user?.email) {
-        userStore.delete(user.email);
-        usernameIndex.delete(user.username);
-        otpStore.delete(user.email);
-      }
-      throw new Error(error.message || 'Registration failed. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const verifyOtp = async (email: string, otp: string): Promise<boolean> => {
-    if (!email || !otp) {
-      throw new Error('Email and OTP are required');
-    }
-
-    setIsLoading(true);
-    try {
-      const userData = userStore.get(email);
-      if (!userData) {
-        throw new Error('User not found');
-      }
-
-      const otpSet = otpStore.get(email);
-      if (!otpSet || !otpSet.has(otp)) {
-        throw new Error('Invalid or expired OTP');
-      }
-
-      otpSet.delete(otp);
-      if (otpSet.size === 0) {
-        otpStore.delete(email);
-      }
-
-      const user = {
-        username: userData.username,
-        email: userData.email,
-        isAdmin: userData.isAdmin
-      };
-
-      setUser(user);
-      setIsAuthenticated(true);
-      localStorage.setItem('token', 'mock-token');
-      localStorage.setItem('user', JSON.stringify(user));
-      
-      return true;
-    } catch (error: any) {
-      logError('OTP verification', error);
-      throw new Error(error.message || 'OTP verification failed. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const resendOtp = async (email: string, username: string): Promise<void> => {
-    if (!email || !username) {
-      throw new Error('Email and username are required');
-    }
-
-    setIsLoading(true);
-    try {
-      if (!userStore.has(email)) {
-        throw new Error('User not found');
-      }
-
-      if (!otpStore.has(email)) {
-        generateOtpSet(email);
-      }
-
-      const otps = Array.from(otpStore.get(email) || []);
-      if (otps.length === 0) {
-        throw new Error('No OTPs available');
-      }
-
-      const selectedOtp = otps[Math.floor(Math.random() * otps.length)];
-
-      if (!N8N_WEBHOOK_URL) {
-        throw new Error('OTP service not configured');
-      }
-
-      const otpResponse = await fetch(N8N_WEBHOOK_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          username,
-          otp: selectedOtp
-        })
-      });
-
-      if (!otpResponse.ok) {
-        throw new Error('Failed to send OTP');
-      }
-    } catch (error: any) {
-      logError('Resend OTP', error);
-      throw new Error(error.message || 'Failed to resend OTP. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const logout = () => {
-    try {
-      if (user?.email) {
-        otpStore.delete(user.email);
-      }
-      setUser(null);
-      setIsAuthenticated(false);
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      return await response.json();
     } catch (error) {
-      logError('Logout', error);
+      console.error('Registration error:', error);
+      throw error;
+    }
+  };
+
+  const verifyOtp = async (email: string, otp: string) => {
+    try {
+      const response = await fetch(`${API_URL}/verify-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ email, otp }),
+      });
+
+      if (!response.ok) {
+        throw new Error('OTP verification failed');
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        setUser(data.user);
+      }
+      return data.success;
+    } catch (error) {
+      console.error('OTP verification error:', error);
+      throw error;
+    }
+  };
+
+  const resendOtp = async (email: string, username: string) => {
+    try {
+      const response = await fetch(`${API_URL}/resend-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, username }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to resend OTP');
+      }
+    } catch (error) {
+      console.error('Resend OTP error:', error);
+      throw error;
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await fetch(`${API_URL}/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setUser(null);
     }
   };
 
@@ -398,8 +266,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         verifyOtp,
         resendOtp,
         logout,
-        isAuthenticated,
-        isLoading
+        isAuthenticated: !!user,
+        isLoading,
       }}
     >
       {children}
@@ -409,7 +277,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
