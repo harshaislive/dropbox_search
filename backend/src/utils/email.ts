@@ -10,7 +10,7 @@ interface OTPData {
   expiresAt: number;
 }
 
-const activeOTPs = new Map<string, OTPData>();
+export const activeOTPs = new Map<string, OTPData>();
 
 // Function to get a random OTP from pre-generated codes
 export const generateOTP = (): string => {
