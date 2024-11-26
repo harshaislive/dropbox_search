@@ -1,5 +1,6 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import cors from 'cors';
 import authRouter from './routes/auth.routes';
 import { AppDataSource } from './data-source';
 
@@ -7,27 +8,13 @@ dotenv.config();
 
 const app = express();
 
-// CORS configuration
-const allowedOrigins = [
-  'https://dropboxsearch-production.up.railway.app',
-  'http://localhost:5173'
-];
-
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (origin && allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  }
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  
-  if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
-    return;
-  }
-  next();
-});
+// Configure CORS
+app.use(cors({
+  origin: ['https://dropboxsearch-production.up.railway.app', 'http://localhost:5173'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // Parse JSON bodies
 app.use(express.json());
