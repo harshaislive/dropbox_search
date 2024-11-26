@@ -27,8 +27,8 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Environment variables
-const API_URL = import.meta.env.VITE_API_URL || 'https://dropbox-search-production.up.railway.app';
-const FRONTEND_URL = import.meta.env.VITE_FRONTEND_URL || 'https://dropboxsearch-production.up.railway.app';
+const API_URL = '/';  // Since backend is served from the same origin
+const FRONTEND_URL = window.location.origin;  // Use current origin
 const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL;
 const NODE_ENV = import.meta.env.MODE || 'development';
 const IS_PRODUCTION = NODE_ENV === 'production';

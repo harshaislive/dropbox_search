@@ -1,20 +1,11 @@
 import express from 'express';
 import dotenv from 'dotenv';
-import cors from 'cors';
 import authRouter from './routes/auth.routes';
 import { AppDataSource } from './data-source';
 
 dotenv.config();
 
 const app = express();
-
-// Configure CORS
-app.use(cors({
-  origin: ['https://dropboxsearch-production.up.railway.app', 'http://localhost:5173'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
 
 // Parse JSON bodies
 app.use(express.json());
