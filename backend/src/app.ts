@@ -18,7 +18,7 @@ app.use(express.static(path.join(__dirname, '../../dist')));
 app.use('/api', authRouter);
 
 // Serve index.html for all other routes (client-side routing)
-app.get('*', (req, res) => {
+app.get('*', (_, res) => {
   res.sendFile(path.join(__dirname, '../../dist/index.html'));
 });
 
