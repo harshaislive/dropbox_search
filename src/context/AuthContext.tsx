@@ -27,7 +27,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Environment variables
-const API_URL = '/';  // Since backend is served from the same origin
+const API_URL = '/api';  // All API routes are prefixed with /api
 const FRONTEND_URL = window.location.origin;  // Use current origin
 const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL;
 const NODE_ENV = import.meta.env.MODE || 'development';

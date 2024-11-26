@@ -17,5 +17,13 @@ export default defineConfig(({ mode }) => {
       'process.env.DROPBOX_APP_SECRET': JSON.stringify(env.DROPBOX_APP_SECRET),
       'process.env.DROPBOX_REFRESH_TOKEN': JSON.stringify(env.DROPBOX_REFRESH_TOKEN),
     },
+    server: {
+      proxy: {
+        '/': {
+          target: 'http://localhost:3000',
+          changeOrigin: true,
+        }
+      }
+    }
   };
 });
