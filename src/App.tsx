@@ -1,13 +1,34 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { LoginForm } from './components/LoginForm';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SearchResults } from './components/SearchResults';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
-import { dropboxService, FileType, MediaType, DateFilter } from './services/api';
+import { dropboxService } from './services/api';
 import { analyticsService } from './services/analyticsService';
-import { Calendar, Image, Video, Clock } from 'lucide-react';
+
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+  return <>{children}</>;
+};
+
+const AnalyticsRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  const isAnalyticsEnabled = import.meta.env.VITE_ANALYTICS_ENABLED === 'true';
+  const isAnalyticsUser = user?.email && isAnalyticsEnabled && 
+    (import.meta.env.VITE_ANALYTICS_ADMIN_EMAILS || '').split(',').some(email => 
+      user.email.toLowerCase().includes(email.toLowerCase().trim())
+    );
+  
+  if (!isAnalyticsUser) {
+    return <Navigate to="/" />;
+  }
+  return <>{children}</>;
+};
 
 const SearchApp: React.FC = () => {
   const { user } = useAuth();
@@ -251,25 +272,6 @@ const SearchApp: React.FC = () => {
       </div>
     </div>
   );
-};
-
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
-  if (!user) {
-    return <Navigate to="/login" />;
-  }
-  return <>{children}</>;
-};
-
-const AnalyticsRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
-  const isAnalyticsUser = user?.email && 
-    (user.email.includes('seshu') || user.email.includes('harsha'));
-  
-  if (!isAnalyticsUser) {
-    return <Navigate to="/" />;
-  }
-  return <>{children}</>;
 };
 
 const App: React.FC = () => {

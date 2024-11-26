@@ -1,17 +1,16 @@
-import React, { ReactNode } from 'react';
+import React from 'react';
 import { Header } from './Header';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
-interface LayoutProps {
-  children: ReactNode;
-}
-
-export const Layout: React.FC<LayoutProps> = ({ children }) => {
+export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
-  const isAnalyticsUser = user?.email && 
-    (user.email.includes('seshu') || user.email.includes('harsha'));
+  const isAnalyticsEnabled = import.meta.env.VITE_ANALYTICS_ENABLED === 'true';
+  const isAnalyticsUser = user?.email && isAnalyticsEnabled && 
+    (import.meta.env.VITE_ANALYTICS_ADMIN_EMAILS || '').split(',').some(email => 
+      user.email.toLowerCase().includes(email.toLowerCase().trim())
+    );
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -51,7 +50,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         {children}
       </main>
       <footer className="mt-auto py-4 text-center text-sm text-gray-500">
-        &copy; {new Date().getFullYear()} Dropbox Search. All rights reserved.
+        &copy; {new Date().getFullYear()} Beforest Search. All rights reserved.
       </footer>
     </div>
   );
