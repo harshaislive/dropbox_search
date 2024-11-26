@@ -1,9 +1,14 @@
 import React from 'react';
-import { Header } from './Header';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { Header } from './Header';
 
-export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+interface LayoutProps {
+  children: React.ReactNode;
+  showHeader?: boolean;
+}
+
+export const Layout: React.FC<LayoutProps> = ({ children, showHeader = true }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const isAnalyticsEnabled = import.meta.env.VITE_ANALYTICS_ENABLED === 'true';
@@ -35,18 +40,20 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   Analytics
                 </Link>
               )}
-              <button
-                onClick={logout}
-                className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
-              >
-                Logout
-              </button>
+              {user && (
+                <button
+                  onClick={logout}
+                  className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
+                >
+                  Logout
+                </button>
+              )}
             </div>
           </div>
         </div>
       </nav>
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <Header />
+        {showHeader && user && <Header />}
         {children}
       </main>
       <footer className="mt-auto py-4 text-center text-sm text-gray-500">

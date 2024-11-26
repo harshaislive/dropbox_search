@@ -21,17 +21,16 @@ export default defineConfig(({ mode }) => {
       // Provide global variables
       global: {},
       // Polyfill process
-      process: {
-        env: {
-          ...env,
-          VITE_POSTGRES_URL: JSON.stringify(env.VITE_POSTGRES_URL),
-          DROPBOX_APP_KEY: JSON.stringify(env.DROPBOX_APP_KEY),
-          DROPBOX_APP_SECRET: JSON.stringify(env.DROPBOX_APP_SECRET),
-          DROPBOX_REFRESH_TOKEN: JSON.stringify(env.DROPBOX_REFRESH_TOKEN),
-          VITE_ANALYTICS_ENABLED: JSON.stringify(env.VITE_ANALYTICS_ENABLED),
-          VITE_ANALYTICS_ADMIN_EMAILS: JSON.stringify(env.VITE_ANALYTICS_ADMIN_EMAILS),
-          VITE_ANALYTICS_SESSION_DURATION: JSON.stringify(env.VITE_ANALYTICS_SESSION_DURATION)
-        }
+      'process.env': {
+        ...env,
+        VITE_POSTGRES_URL: JSON.stringify(env.VITE_POSTGRES_URL),
+        VITE_DROPBOX_APP_KEY: JSON.stringify(env.VITE_DROPBOX_APP_KEY),
+        VITE_DROPBOX_APP_SECRET: JSON.stringify(env.VITE_DROPBOX_APP_SECRET),
+        VITE_DROPBOX_REFRESH_TOKEN: JSON.stringify(env.VITE_DROPBOX_REFRESH_TOKEN),
+        VITE_N8N_WEBHOOK_URL: JSON.stringify(env.VITE_N8N_WEBHOOK_URL),
+        VITE_ANALYTICS_ENABLED: JSON.stringify(env.VITE_ANALYTICS_ENABLED),
+        VITE_ANALYTICS_ADMIN_EMAILS: JSON.stringify(env.VITE_ANALYTICS_ADMIN_EMAILS),
+        VITE_ANALYTICS_SESSION_DURATION: JSON.stringify(env.VITE_ANALYTICS_SESSION_DURATION)
       }
     },
   };

@@ -1,19 +1,18 @@
-import React from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { LoginForm } from './components/LoginForm';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SearchResults } from './components/SearchResults';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
+import { SearchContainer } from './components/SearchContainer';
 import { dropboxService } from './services/api';
 import { analyticsService } from './services/analyticsService';
+import { FileType, MediaType, DateFilter } from './types';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  if (!user) {
-    return <Navigate to="/login" />;
-  }
-  return <>{children}</>;
+  return user ? <>{children}</> : <Navigate to="/login" />;
 };
 
 const AnalyticsRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -279,13 +278,20 @@ const App: React.FC = () => {
     <AuthProvider>
       <Router>
         <Routes>
-          <Route path="/login" element={<LoginForm />} />
+          <Route 
+            path="/login" 
+            element={
+              <Layout showHeader={false}>
+                <LoginForm />
+              </Layout>
+            } 
+          />
           <Route
             path="/"
             element={
               <ProtectedRoute>
                 <Layout>
-                  <SearchApp />
+                  <SearchContainer />
                 </Layout>
               </ProtectedRoute>
             }
@@ -300,6 +306,7 @@ const App: React.FC = () => {
               </ProtectedRoute>
             }
           />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
     </AuthProvider>
