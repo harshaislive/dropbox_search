@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Layout } from './components/layout/Layout';
-import { AuthForm } from './components/AuthForm';
+import { LoginForm } from './components/LoginForm';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SearchResults } from './components/SearchResults';
 import { dropboxService, FileType, MediaType, DateFilter } from './services/api';
@@ -197,7 +197,7 @@ const SearchApp: React.FC = () => {
                 {error}
               </div>
             ) : searchResults.length > 0 ? (
-              <>
+              <React.Fragment>
                 <SearchResults results={searchResults} />
                 {hasMore && (
                   <div className="text-center mt-4">
@@ -210,7 +210,7 @@ const SearchApp: React.FC = () => {
                     </button>
                   </div>
                 )}
-              </>
+              </React.Fragment>
             ) : searchTerm && !isLoading ? (
               <div className="text-center py-8 text-gray-600">
                 No results found
@@ -227,7 +227,7 @@ const ProtectedApp: React.FC = () => {
   const { isAuthenticated } = useAuth();
 
   if (!isAuthenticated) {
-    return <AuthForm />;
+    return <LoginForm />;
   }
 
   return (
