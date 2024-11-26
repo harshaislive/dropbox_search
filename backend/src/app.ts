@@ -9,13 +9,16 @@ dotenv.config();
 
 const app = express();
 
-// Configure CORS
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production'
-    ? ['https://dropboxsearch-production.up.railway.app']
-    : 'http://localhost:5173',
+// CORS configuration
+const corsOptions = {
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://dropbox-search-feature-remember-me.vercel.app']
+    : ['http://localhost:5173'],
   credentials: true,
-}));
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
 
 // Parse JSON bodies
 app.use(express.json());
