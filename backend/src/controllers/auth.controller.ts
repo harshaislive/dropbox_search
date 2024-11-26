@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { User } from '../entity/User';
+import { User } from '../entities/User';
 import { AppDataSource } from '../data-source';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -8,7 +8,7 @@ import { generateOTP, sendOTPEmail, validateOTP } from '../utils/email';
 const userRepository = AppDataSource.getRepository(User);
 
 // Register new user
-export const register = async (req: Request, res: Response) => {
+export const register = async (req: Request, res: Response): Promise<Response> => {
   try {
     const { email, password, username } = req.body;
 
@@ -36,15 +36,15 @@ export const register = async (req: Request, res: Response) => {
     // Send OTP email
     await sendOTPEmail(email, otp, username);
 
-    res.status(201).json({ message: 'Registration initiated. Please verify your email.' });
+    return res.status(201).json({ message: 'Registration initiated. Please verify your email.' });
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ message: 'Error during registration' });
+    return res.status(500).json({ message: 'Error during registration' });
   }
 };
 
 // Verify email with OTP
-export const verifyEmail = async (req: Request, res: Response) => {
+export const verifyEmail = async (req: Request, res: Response): Promise<Response> => {
   try {
     const { email, otp } = req.body;
 
@@ -69,15 +69,15 @@ export const verifyEmail = async (req: Request, res: Response) => {
       { expiresIn: '24h' }
     );
 
-    res.json({ token, user: { id: user.id, email: user.email, username: user.username } });
+    return res.json({ token, user: { id: user.id, email: user.email, username: user.username } });
   } catch (error) {
     console.error('Verification error:', error);
-    res.status(500).json({ message: 'Error during verification' });
+    return res.status(500).json({ message: 'Error during verification' });
   }
 };
 
 // Login user
-export const login = async (req: Request, res: Response) => {
+export const login = async (req: Request, res: Response): Promise<Response> => {
   try {
     const { email, password } = req.body;
 
@@ -105,9 +105,9 @@ export const login = async (req: Request, res: Response) => {
       { expiresIn: '24h' }
     );
 
-    res.json({ token, user: { id: user.id, email: user.email, username: user.username } });
+    return res.json({ token, user: { id: user.id, email: user.email, username: user.username } });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ message: 'Error during login' });
+    return res.status(500).json({ message: 'Error during login' });
   }
 };
