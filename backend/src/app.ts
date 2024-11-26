@@ -11,17 +11,30 @@ const app = express();
 
 // CORS configuration
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://dropbox-search-feature-remember-me.vercel.app']
-    : ['http://localhost:5173'],
+  origin: process.env.NODE_ENV === 'production'
+    ? [
+        'https://dropbox-search-feature-remember-me.vercel.app',
+        'https://dropbox-search-production.vercel.app'
+      ]
+    : true, // Allow all origins in development
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 };
 
 app.use(cors(corsOptions));
 
+// Add OPTIONS handling for preflight requests
+app.options('*', cors(corsOptions));
+
 // Parse JSON bodies
 app.use(express.json());
+
+// Health check endpoint
+app.get('/health', (_req, res) => {
+  res.json({ status: 'ok', environment: process.env.NODE_ENV });
+});
 
 // Routes
 app.use('/', authRoutes);
