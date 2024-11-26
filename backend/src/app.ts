@@ -10,23 +10,26 @@ dotenv.config();
 const app = express();
 
 // CORS configuration
-const corsOptions = {
-  origin: process.env.NODE_ENV === 'production'
-    ? [
-        'https://dropbox-search-feature-remember-me.vercel.app',
-        'https://dropbox-search-production.vercel.app'
-      ]
-    : true, // Allow all origins in development
+app.use(cors({
+  origin: [
+    'https://dropboxsearch-production.up.railway.app',
+    'http://localhost:5173'
+  ],
   credentials: true,
-  optionsSuccessStatus: 200,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-};
-
-app.use(cors(corsOptions));
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 
 // Add OPTIONS handling for preflight requests
-app.options('*', cors(corsOptions));
+app.options('*', cors({
+  origin: [
+    'https://dropboxsearch-production.up.railway.app',
+    'http://localhost:5173'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 
 // Parse JSON bodies
 app.use(express.json());
