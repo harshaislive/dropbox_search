@@ -10,7 +10,13 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     optimizeDeps: {
+      include: ['react-router-dom'],
       exclude: ['lucide-react'],
+    },
+    build: {
+      rollupOptions: {
+        external: [],
+      },
     },
     define: {
       'process.env.DROPBOX_APP_KEY': JSON.stringify(env.DROPBOX_APP_KEY),
