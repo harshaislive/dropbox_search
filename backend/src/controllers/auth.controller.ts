@@ -8,6 +8,8 @@ export const register = async (req: Request, res: Response): Promise<Response> =
   try {
     const { username, email, password } = req.body;
 
+    console.log('Registration attempt:', { username, email });
+
     if (!username || !email || !password) {
       return res.status(400).json({ 
         success: false,
@@ -49,10 +51,21 @@ export const register = async (req: Request, res: Response): Promise<Response> =
 
     // Save user (unverified)
     await userRepository.save(user);
+    console.log('User saved successfully:', { username, email });
 
     // Generate and send OTP
     const otp = generateOTP();
-    await sendOTPEmail(email, otp, username);
+    console.log('Generated OTP for user:', { username, email });
+    
+    try {
+      await sendOTPEmail(email, otp, username);
+      console.log('OTP sent successfully');
+    } catch (otpError) {
+      console.error('Failed to send OTP:', otpError);
+      // Delete the user since OTP sending failed
+      await userRepository.delete({ email });
+      throw otpError;
+    }
 
     return res.status(201).json({
       success: true,
@@ -64,7 +77,7 @@ export const register = async (req: Request, res: Response): Promise<Response> =
     console.error('Registration error:', err);
     return res.status(500).json({ 
       success: false,
-      message: 'Registration failed. Please try again.' 
+      message: err instanceof Error ? err.message : 'Registration failed. Please try again.' 
     });
   }
 };

@@ -54,8 +54,11 @@ export const sendOTPEmail = async (email: string, otp: string, username: string)
 
     const webhookUrl = process.env.N8N_WEBHOOK_URL;
     if (!webhookUrl) {
-      throw new Error('N8N webhook URL not configured');
+      console.error('N8N_WEBHOOK_URL is not set in environment variables');
+      throw new Error('Email service not configured');
     }
+
+    console.log('Sending OTP email with webhook:', { email, username, webhookUrl });
 
     const response = await fetch(webhookUrl, {
       method: 'POST',
@@ -66,14 +69,23 @@ export const sendOTPEmail = async (email: string, otp: string, username: string)
         email,
         username,
         otp,
+        template: 'otp-email',
       }),
     });
 
     if (!response.ok) {
-      throw new Error('Failed to send OTP email');
+      const errorText = await response.text();
+      console.error('N8N webhook error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText
+      });
+      throw new Error(`Failed to send OTP email: ${response.statusText}`);
     }
+
+    console.log('OTP email sent successfully');
   } catch (error) {
     console.error('Error sending OTP email:', error);
-    throw new Error('Failed to send OTP email');
+    throw new Error(error instanceof Error ? error.message : 'Failed to send OTP email');
   }
 };

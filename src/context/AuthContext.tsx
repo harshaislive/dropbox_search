@@ -180,6 +180,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Passwords do not match');
       }
 
+      console.log('Attempting registration with:', { username, email });
+
       const response = await fetch(`${API_URL}/register`, {
         method: 'POST',
         headers: {
@@ -188,12 +190,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         body: JSON.stringify({ username, email, password }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Registration failed');
+        console.error('Registration failed:', data);
+        throw new Error(data.message || 'Registration failed');
       }
 
-      return await response.json();
+      console.log('Registration successful:', data);
+      return data;
     } catch (error) {
       console.error('Registration error:', error);
       throw error;
