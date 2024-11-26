@@ -26,9 +26,11 @@ interface StoredUser {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Environment variables
-const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL;
+const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL || '';
 const NODE_ENV = import.meta.env.MODE || 'development';
 const IS_PRODUCTION = NODE_ENV === 'production';
+const ANALYTICS_ENABLED = import.meta.env.VITE_ANALYTICS_ENABLED === 'true';
+const ANALYTICS_ADMIN_EMAILS = (import.meta.env.VITE_ANALYTICS_ADMIN_EMAILS || '').split(',').map(email => email.trim());
 
 // Store OTPs and users in memory (in a real app, this should be in a database)
 const otpStore = new Map<string, Set<string>>();
