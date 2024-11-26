@@ -1,9 +1,7 @@
-import 'reflect-metadata';
 import express from 'express';
-import cors from 'cors';
+import dotenv from 'dotenv';
+import { authRouter } from './routes/auth.routes';
 import { AppDataSource } from './data-source';
-import authRoutes from './routes/auth.routes';
-import * as dotenv from 'dotenv';
 
 dotenv.config();
 
@@ -25,7 +23,8 @@ app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   
   if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
+    res.sendStatus(200);
+    return;
   }
   next();
 });
@@ -34,48 +33,20 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 // Health check endpoint
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', environment: process.env.NODE_ENV });
+app.get('/health', (_, res) => {
+  res.json({ status: 'ok' });
 });
 
 // Routes
-app.use('/', authRoutes);
+app.use(authRouter);
 
-// Error handling middleware
-app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error('Error:', err);
-  
-  // Send more detailed error in development
-  const message = process.env.NODE_ENV === 'development' 
-    ? err.message 
-    : 'Something went wrong!';
-    
-  res.status(500).json({ success: false, message });
-});
-
-// Database connection and server start
-const startServer = async () => {
-  try {
-    // Initialize the database connection
-    await AppDataSource.initialize();
-    console.log('Database connection established');
-
-    const PORT = process.env.PORT || 3000;
-    app.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
-    });
-  } catch (error) {
-    console.error('Error during initialization:', error);
-    process.exit(1);
-  }
-};
-
-// Start server if running directly
-if (require.main === module) {
-  startServer().catch(error => {
-    console.error('Failed to start server:', error);
-    process.exit(1);
+// Initialize database connection
+AppDataSource.initialize()
+  .then(() => {
+    console.log('Database connection initialized');
+  })
+  .catch((error) => {
+    console.error('Error initializing database connection:', error);
   });
-}
 
 export default app;
