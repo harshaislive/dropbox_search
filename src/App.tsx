@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { LoginForm } from './components/LoginForm';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SearchResults } from './components/SearchResults';
+import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { dropboxService, FileType, MediaType, DateFilter } from './services/api';
+import { analyticsService } from './services/analyticsService';
 import { Calendar, Image, Video, Clock } from 'lucide-react';
 
 const SearchApp: React.FC = () => {
+  const { user } = useAuth();
   const [searchResults, setSearchResults] = useState<FileType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -17,6 +21,8 @@ const SearchApp: React.FC = () => {
   const [hasMore, setHasMore] = useState(true);
   const [searchStats, setSearchStats] = useState<{ total: number; duration: number } | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [isAnalyticsUser, setIsAnalyticsUser] = useState(false);
   const searchTimeout = useRef<NodeJS.Timeout>();
 
   const handleSearch = useCallback(async () => {
@@ -87,6 +93,16 @@ const SearchApp: React.FC = () => {
       handleSearch();
     }
   }, [mediaType, dateFilter]);
+
+  useEffect(() => {
+    const checkAnalyticsAccess = async () => {
+      if (user?.email) {
+        const hasAccess = await analyticsService.isAnalyticsUser(user.email);
+        setIsAnalyticsUser(hasAccess);
+      }
+    };
+    checkAnalyticsAccess();
+  }, [user?.email]);
 
   const getDateFilterLabel = (filter: DateFilter): string => {
     switch (filter) {
@@ -185,62 +201,105 @@ const SearchApp: React.FC = () => {
             </div>
           </div>
 
-          {/* Search Results */}
-          <div className="mt-8">
-            {isLoading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand mx-auto"></div>
-                <p className="mt-2 text-gray-600">Searching...</p>
-              </div>
-            ) : error ? (
-              <div className="text-center py-8 text-red-600">
-                {error}
-              </div>
-            ) : searchResults.length > 0 ? (
-              <React.Fragment>
-                <SearchResults results={searchResults} />
-                {hasMore && (
-                  <div className="text-center mt-4">
-                    <button
-                      onClick={loadMore}
-                      disabled={isLoadingMore}
-                      className="px-4 py-2 bg-brand text-white rounded-md hover:bg-brand/90 disabled:opacity-50"
-                    >
-                      {isLoadingMore ? 'Loading...' : 'Load More'}
-                    </button>
-                  </div>
-                )}
-              </React.Fragment>
-            ) : searchTerm && !isLoading ? (
-              <div className="text-center py-8 text-gray-600">
-                No results found
-              </div>
-            ) : null}
-          </div>
+          {isAnalyticsUser && (
+            <div className="mb-4">
+              <button
+                onClick={() => setShowAnalytics(!showAnalytics)}
+                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+              >
+                {showAnalytics ? 'Show Search' : 'Show Analytics'}
+              </button>
+            </div>
+          )}
+
+          {showAnalytics && isAnalyticsUser ? (
+            <AnalyticsDashboard />
+          ) : (
+            <div className="mt-8">
+              {isLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand mx-auto"></div>
+                  <p className="mt-2 text-gray-600">Searching...</p>
+                </div>
+              ) : error ? (
+                <div className="text-center py-8 text-red-600">
+                  {error}
+                </div>
+              ) : searchResults.length > 0 ? (
+                <React.Fragment>
+                  <SearchResults results={searchResults} />
+                  {hasMore && (
+                    <div className="text-center mt-4">
+                      <button
+                        onClick={loadMore}
+                        disabled={isLoadingMore}
+                        className="px-4 py-2 bg-brand text-white rounded-md hover:bg-brand/90 disabled:opacity-50"
+                      >
+                        {isLoadingMore ? 'Loading...' : 'Load More'}
+                      </button>
+                    </div>
+                  )}
+                </React.Fragment>
+              ) : searchTerm && !isLoading ? (
+                <div className="text-center py-8 text-gray-600">
+                  No results found
+                </div>
+              ) : null}
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
-const ProtectedApp: React.FC = () => {
-  const { isAuthenticated } = useAuth();
-
-  if (!isAuthenticated) {
-    return <LoginForm />;
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  if (!user) {
+    return <Navigate to="/login" />;
   }
+  return <>{children}</>;
+};
 
-  return (
-    <Layout>
-      <SearchApp />
-    </Layout>
-  );
+const AnalyticsRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  const isAnalyticsUser = user?.email && 
+    (user.email.includes('seshu') || user.email.includes('harsha'));
+  
+  if (!isAnalyticsUser) {
+    return <Navigate to="/" />;
+  }
+  return <>{children}</>;
 };
 
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <ProtectedApp />
+      <Router>
+        <Routes>
+          <Route path="/login" element={<LoginForm />} />
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <SearchApp />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/analytics"
+            element={
+              <ProtectedRoute>
+                <AnalyticsRoute>
+                  <AnalyticsDashboard />
+                </AnalyticsRoute>
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </Router>
     </AuthProvider>
   );
 };
