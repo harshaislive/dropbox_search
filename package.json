@@ -13,6 +13,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.49.8",
     "@types/lodash": "^4.17.13",
     "@types/pg": "^8.11.10",
     "@types/react-datepicker": "^6.2.0",

@@ -5,6 +5,8 @@ import { LoginForm } from './components/LoginForm';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { SearchContainer } from './components/SearchContainer';
+import GalleryList from './components/gallery/GalleryList';
+import GalleryDetail from './components/gallery/GalleryDetail';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
@@ -58,6 +60,28 @@ const App: React.FC = () => {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/gallery"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <GalleryList />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/gallery/:galleryId"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <GalleryDetail />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          {/* Placeholder for edit, can be implemented later */}
+          <Route path="/gallery/:galleryId/edit" element={<div>Edit Gallery (Coming Soon)</div>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>

@@ -104,9 +104,9 @@ export const SearchContainer: React.FC = () => {
 
   return (
     <>
-      {/* Centered Search Bar */}
-      <div className="max-w-xl mx-auto mt-8 mb-6">
-        <div className="relative">
+      {/* Search Bar and Filters in one row */}
+      <div className="max-w-3xl mx-auto mt-8 mb-8 flex flex-col md:flex-row items-stretch md:items-center gap-4">
+        <div className="flex-1 relative">
           <input
             type="text"
             value={searchTerm}
@@ -116,11 +116,7 @@ export const SearchContainer: React.FC = () => {
           />
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
         </div>
-      </div>
-
-      {/* Filters: left-aligned, match card grid width */}
-      <div className="max-w-6xl mx-auto px-4 mb-8">
-        <div className="flex flex-wrap gap-4 items-center">
+        <div className="flex flex-row gap-3 min-w-fit">
           {/* Media Type Filter */}
           <select
             value={mediaType}
@@ -164,7 +160,7 @@ export const SearchContainer: React.FC = () => {
             <div className="flex justify-center mt-4">
               <button
                 onClick={loadMore}
-                className="px-6 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 disabled:opacity-50"
+                className="px-6 py-2 bg-brand-forest text-brand-offwhite rounded shadow hover:bg-brand-olive disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-brand-forest focus:ring-offset-2 uppercase"
                 disabled={isLoadingMore}
               >
                 {isLoadingMore ? 'Loading...' : 'Load More'}

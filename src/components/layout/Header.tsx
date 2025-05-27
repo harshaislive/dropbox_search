@@ -34,7 +34,7 @@ export const Header: React.FC = () => {
                 rel="noopener noreferrer"
                 className="group relative inline-flex items-center px-4 py-2 text-sm font-medium text-brand-offwhite bg-brand-forest rounded-full hover:bg-brand-olive transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-brand-forest focus:ring-offset-2 focus:ring-offset-brand-offwhite"
               >
-                <span className="relative z-10">Upload to Beforest</span>
+                <span className="relative z-10 transition-colors duration-200 group-hover:text-white">Upload to Beforest</span>
                 <div className="absolute inset-0 rounded-full bg-gradient-to-r from-brand-forest to-brand-olive opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
               </a>
 

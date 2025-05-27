@@ -3,6 +3,11 @@ import { ImagePreviewModal } from './ImagePreviewModal';
 import { FileType } from '../services/api';
 import { dropboxService } from '../services/api';
 import { Play, Download } from 'lucide-react';
+import GallerySelectionPanel from './gallery/GallerySelectionPanel';
+import GalleryCreateModal from './gallery/GalleryCreateModal';
+import { createGallery } from '../services/galleryApi';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 interface SearchResultsProps {
   results: FileType[];
@@ -10,6 +15,54 @@ interface SearchResultsProps {
 
 export const SearchResults: React.FC<SearchResultsProps> = ({ results }) => {
   const safeResults = Array.isArray(results) ? results : [];
+  // Gallery selection state
+  const [selectedFiles, setSelectedFiles] = useState<FileType[]>([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Helper: add or remove file from selection
+  const toggleSelectFile = (file: FileType) => {
+    setSelectedFiles((prev) => {
+      if (prev.some(f => f.path === file.path)) {
+        return prev.filter(f => f.path !== file.path);
+      } else {
+        return [...prev, file];
+      }
+    });
+  };
+
+  const removeSelectedFile = (path: string) => {
+    setSelectedFiles((prev) => prev.filter(f => f.path !== path));
+  };
+
+  const handleCreateGallery = async (title: string, summary: string) => {
+    if (!selectedFiles.length) return;
+    if (!user) {
+      alert('You must be logged in to create a gallery.');
+      return;
+    }
+    // For thumbnail, use the first image/video's thumbnailUrl or path
+    const first = selectedFiles[0];
+    const thumbnail = (first as any).thumbnailUrl || first.path;
+    // Only allow images/videos
+    const imagePaths = selectedFiles.map(f => f.path);
+    const { error } = await createGallery({
+      title,
+      summary,
+      thumbnail_path: thumbnail,
+      image_paths: imagePaths
+    });
+    if (error) {
+      alert('Failed to create gallery: ' + error.message);
+      return;
+    }
+    setSelectedFiles([]);
+    setShowCreateModal(false);
+    navigate('/gallery');
+  };
+
+
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedFileName, setSelectedFileName] = useState<string>('');
   const [loadingVideo, setLoadingVideo] = useState<Record<string, boolean>>({});
@@ -32,10 +85,10 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ results }) => {
     // Try to get a direct download link first
     let url: string | null = null;
     try {
-      url = await dropboxService.getDownloadLink(file.path);
-      // Convert to direct link if needed
+      url = await dropboxService.getDownloadLink(file.path);      // Convert to direct link if needed
       if (url.includes('www.dropbox.com')) {
-        url = dropboxService.convertToDirectLink(url);
+        // Use public Dropbox link conversion (replace ?dl=0 with ?raw=1)
+        url = url.replace('?dl=0', '?raw=1');
       }
     } catch (err) {
       console.warn('Failed to get direct download link, will try temporary link:', err);
@@ -133,192 +186,214 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ results }) => {
   };
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 lg:gap-6">
-      {safeResults.map((file, idx) => (
-        <div
-          key={file.id || idx}
-          className="glass-card group cursor-pointer transform hover:scale-[1.02] transition-all duration-300 ease-out"
-        >
-          <div className="relative aspect-square bg-gradient-to-br from-neutral-50 to-neutral-100 overflow-hidden rounded-xl">
-            {file.thumbnailUrl ? (
-              <div 
-                className="w-full h-full relative"
-                onClick={() => file.isVideo ? handleVideoClick(file) : handleImageClick(file)}
-              >
-                {file.isVideo && playingVideos[file.path] ? (
-                  <div className="video-container" onClick={(e) => e.stopPropagation()}>
-                    <video
-                      src={playingVideos[file.path]}
-                      controls
-                      autoPlay
-                      preload="auto"
-                      className="w-full h-full object-cover rounded-xl"
-                      onError={(e) => {
-                        const videoElement = e.target as HTMLVideoElement;
-                        console.error('Video playback error details:', {
-                          error: videoElement.error,
-                          networkState: videoElement.networkState,
-                          readyState: videoElement.readyState,
-                          currentSrc: videoElement.currentSrc
-                        });
-                        console.error('Video playback error:', e);
-                        alert('Error playing video. Please try again.');
-                        setPlayingVideos(prev => {
-                          const next = { ...prev };
-                          delete next[file.path];
-                          return next;
-                        });
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <>
-                    <img
-                      src={file.thumbnailUrl}
-                      alt={file.name}
-                      className="w-full h-full object-cover rounded-xl transform group-hover:scale-110 transition-transform duration-500 ease-out"
-                      loading="lazy"
-                      onError={(e) => {
-                        console.error('Error loading thumbnail:', file.path);
-                        const target = e.target as HTMLImageElement;
-                        target.onerror = null;
-                        target.src = '';
-                        target.style.display = 'none';
-                      }}
-                    />
-                    {loadingVideo[file.path] && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-xl">
-                        <div className="animate-spin rounded-full h-8 w-8 border-3 border-primary border-t-transparent"></div>
-                      </div>
-                    )}
-                    {file.isVideo && !loadingVideo[file.path] && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-all duration-300 rounded-xl">
-                        {playingVideos[file.path] ? (
-                          <div className="w-10 h-10 border-2 border-primary rounded-full flex items-center justify-center bg-white/20 backdrop-blur-sm">
-                            <span className="w-4 h-4 bg-primary rounded-full"></span>
-                          </div>
-                        ) : (
-                          <div className="w-12 h-12 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-all duration-300">
-                            <Play className="w-6 h-6 text-primary ml-0.5" />
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </>
-                )}
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 p-3 rounded-b-xl">
-                  <p className="text-white text-sm font-medium truncate">{file.name}</p>
-                </div>
-              </div>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-neutral-400 rounded-xl">
-                <div className="text-center">
-                  <div className="w-12 h-12 bg-neutral-200 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <svg className="w-6 h-6 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <p className="text-xs">No preview</p>
-                </div>
-              </div>
-            )}
-          </div>
-          <div className="p-4">
-            <div className="flex items-start justify-between mb-3">
-              <h3 className="text-sm font-semibold text-neutral-800 leading-tight flex-1 mr-2" title={file.name}>
-                {file.name.length > 20 ? `${file.name.substring(0, 20)}...` : file.name}
-              </h3>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDownload(file.path, file.name);
-                }}
-                className="p-2 text-neutral-500 hover:text-primary transition-colors duration-200 hover:bg-neutral-100 rounded-lg flex-shrink-0"
-                title="Download file"
-              >
-                <Download size={16} />
-              </button>
-            </div>
-            <div className="space-y-1">
-              <div className="text-xs font-medium text-primary">
-                {dropboxService.formatFileSize(file.size)}
-              </div>
-              <p className="text-xs text-neutral-500">
-                {new Date(file.serverModified).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric'
-                })}
-              </p>
-            </div>
-          </div>
-        </div>
-      ))}
-      
-      {selectedImage && (
-        <ImagePreviewModal
-          imageUrl={selectedImage}
-          isOpen={isPreviewOpen}
-          onClose={handleClosePreview}
-          fileName={selectedFileName}
-          isVideo={selectedFileName.toLowerCase().match(/\.(mp4|mov|avi|wmv|flv|mkv)$/i) !== null}
-        />
-      )}
-      {selectedVideo && (
-        <div 
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300"
-          onClick={() => setSelectedVideo(null)}
-        >
-          <div 
-            className="relative w-full max-w-5xl animate-in zoom-in duration-300"
-            onClick={e => e.stopPropagation()}
+    <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 lg:gap-6">
+        {safeResults.map((file, idx) => (
+          <div
+            key={file.id || idx}
+            className="glass-card group cursor-pointer transform transition-all duration-300 ease-out hover:scale-105 hover:shadow-lg focus-within:scale-105 focus-within:shadow-lg"
+            tabIndex={0}
           >
-            <button 
-              onClick={() => setSelectedVideo(null)}
-              className="absolute -top-12 right-0 text-white/80 hover:text-white transition-colors text-sm font-medium flex items-center gap-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              Close
-            </button>
-            <div className="relative aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl">
-              <video
-                key={selectedVideo.url}
-                src={selectedVideo.url}
-                controls
-                autoPlay
-                playsInline
-                className="w-full h-full"
-                onLoadStart={(e) => {
-                  console.log('Video load started');
-                  const video = e.target as HTMLVideoElement;
-                  video.volume = 1.0;
-                }}
-                onCanPlay={() => console.log('Video can play')}
-                onError={(e) => {
-                  const video = e.target as HTMLVideoElement;
-                  console.error('Video playback error:', {
-                    error: video.error?.message,
-                    code: video.error?.code,
-                    networkState: video.networkState,
-                    readyState: video.readyState,
-                    currentSrc: video.currentSrc,
-                    paused: video.paused,
-                    ended: video.ended,
-                    seeking: video.seeking,
-                    duration: video.duration,
-                    volume: video.volume,
-                    muted: video.muted
-                  });
-                  alert('Error playing video. Please try again.');
-                  setSelectedVideo(null);
-                }}
-              />
+            <input
+              type="checkbox"
+              checked={selectedFiles.some(f => f.path === file.path)}
+              onChange={e => { e.stopPropagation(); toggleSelectFile(file); }}
+              className="absolute top-2 left-2 z-10 w-5 h-5 accent-brand-forest"
+              title="Select for gallery"
+            />
+            <div className="relative aspect-square bg-gradient-to-br from-neutral-50 to-neutral-100 overflow-hidden rounded-xl">
+              {file.thumbnailUrl ? (
+                <div 
+                  className="w-full h-full relative"
+                  onClick={() => file.isVideo ? handleVideoClick(file) : handleImageClick(file)}
+                >
+                  {file.isVideo && playingVideos[file.path] ? (
+                    <div className="video-container" onClick={(e) => e.stopPropagation()}>
+                      <video
+                        src={playingVideos[file.path]}
+                        controls
+                        autoPlay
+                        preload="auto"
+                        className="w-full h-full object-cover rounded-xl"
+                        onError={(e) => {
+                          const videoElement = e.target as HTMLVideoElement;
+                          console.error('Video playback error details:', {
+                            error: videoElement.error,
+                            networkState: videoElement.networkState,
+                            readyState: videoElement.readyState,
+                            currentSrc: videoElement.currentSrc
+                          });
+                          console.error('Video playback error:', e);
+                          alert('Error playing video. Please try again.');
+                          setPlayingVideos(prev => {
+                            const next = { ...prev };
+                            delete next[file.path];
+                            return next;
+                          });
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <img
+                        src={file.thumbnailUrl}
+                        alt={file.name}
+                        className="w-full h-full object-cover rounded-xl transform group-hover:scale-110 transition-transform duration-500 ease-out"
+                        loading="lazy"
+                        onError={(e) => {
+                          console.error('Error loading thumbnail:', file.path);
+                          const target = e.target as HTMLImageElement;
+                          target.onerror = null;
+                          target.src = '';
+                          target.style.display = 'none';
+                        }}
+                      />
+                      {loadingVideo[file.path] && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-xl">
+                          <div className="animate-spin rounded-full h-8 w-8 border-3 border-primary border-t-transparent"></div>
+                        </div>
+                      )}
+                      {file.isVideo && !loadingVideo[file.path] && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-all duration-300 rounded-xl">
+                          {playingVideos[file.path] ? (
+                            <div className="w-10 h-10 border-2 border-primary rounded-full flex items-center justify-center bg-white/20 backdrop-blur-sm">
+                              <span className="w-4 h-4 bg-primary rounded-full"></span>
+                            </div>
+                          ) : (
+                            <div className="w-12 h-12 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-all duration-300">
+                              <Play className="w-6 h-6 text-primary ml-0.5" />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 p-3 rounded-b-xl">
+                    <p className="text-white text-sm font-medium truncate">{file.name}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-neutral-400 rounded-xl">
+                  <div className="text-center">
+                    <div className="w-12 h-12 bg-neutral-200 rounded-full flex items-center justify-center mx-auto mb-2">
+                      <svg className="w-6 h-6 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <p className="text-xs">No preview</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="p-4">
+              <div className="flex items-start justify-between mb-3">
+                <h3 className="text-sm font-semibold text-neutral-800 leading-tight flex-1 mr-2" title={file.name}>
+                  {file.name.length > 20 ? `${file.name.substring(0, 20)}...` : file.name}
+                </h3>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDownload(file.path, file.name);
+                  }}
+                  className="p-2 text-neutral-500 hover:text-primary transition-colors duration-200 hover:bg-neutral-100 rounded-lg flex-shrink-0"
+                  title="Download file"
+                >
+                  <Download size={16} />
+                </button>
+              </div>
+              <div className="space-y-1">
+                <div className="text-xs font-medium text-primary">
+                  {dropboxService.formatFileSize(file.size)}
+                </div>
+                <p className="text-xs text-neutral-500">
+                  {new Date(file.serverModified).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  })}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        ))}
+        
+        {selectedImage && (
+          <ImagePreviewModal
+            imageUrl={selectedImage}
+            isOpen={isPreviewOpen}
+            onClose={handleClosePreview}
+            fileName={selectedFileName}
+            isVideo={selectedFileName.toLowerCase().match(/\.(mp4|mov|avi|wmv|flv|mkv)$/i) !== null}
+          />
+        )}
+        {selectedVideo && (
+          <div 
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300"
+            onClick={() => setSelectedVideo(null)}
+          >
+            <div 
+              className="relative w-full max-w-5xl animate-in zoom-in duration-300"
+              onClick={e => e.stopPropagation()}
+            >
+              <button 
+                onClick={() => setSelectedVideo(null)}
+                className="absolute -top-12 right-0 text-white/80 hover:text-white transition-colors text-sm font-medium flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Close
+              </button>
+              <div className="relative aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl">
+                <video
+                  key={selectedVideo.url}
+                  src={selectedVideo.url}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="w-full h-full"
+                  onLoadStart={(e) => {
+                    console.log('Video load started');
+                    const video = e.target as HTMLVideoElement;
+                    video.volume = 1.0;
+                  }}
+                  onCanPlay={() => console.log('Video can play')}
+                  onError={(e) => {
+                    const video = e.target as HTMLVideoElement;
+                    console.error('Video playback error:', {
+                      error: video.error?.message,
+                      code: video.error?.code,
+                      networkState: video.networkState,
+                      readyState: video.readyState,
+                      currentSrc: video.currentSrc,
+                      paused: video.paused,
+                      ended: video.ended,
+                      seeking: video.seeking,
+                      duration: video.duration,
+                      volume: video.volume,
+                      muted: video.muted
+                    });
+                    alert('Error playing video. Please try again.');
+                    setSelectedVideo(null);
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      {/* Gallery Selection Panel */}
+      <GallerySelectionPanel
+        selectedImages={selectedFiles.map(f => (f as any).thumbnailUrl || f.path) }
+        onRemove={removeSelectedFile}
+        onCreate={() => setShowCreateModal(true)}
+      />
+      {/* Gallery Create Modal */}
+      <GalleryCreateModal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSubmit={handleCreateGallery}
+      />
     </div>
   );
 };
