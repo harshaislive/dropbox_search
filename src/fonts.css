@@ -1,0 +1,25 @@
+/* Font-face declarations for Beforest custom fonts */
+@font-face {
+  font-family: 'ABCArizonaFlare';
+  src: url('./fonts/ABCArizonaFlare-Regular-Trial.woff2') format('woff2'),
+       url('./fonts/ABCArizonaFlare-Regular-Trial.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'ABCArizonaFlare';
+  src: url('./fonts/ABCArizonaFlare-Light-Trial.woff2') format('woff2'),
+       url('./fonts/ABCArizonaFlare-Light-Trial.woff') format('woff');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'ABCArizonaSans';
+  src: url('./fonts/ABCArizonaSans-Regular-Trial.woff2') format('woff2'),
+       url('./fonts/ABCArizonaSans-Regular-Trial.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}

@@ -214,12 +214,24 @@ export class DropboxService {
     for (let batch of batches) {
       try {
         console.log('Requesting thumbnails for batch:', batch.length);
-        const entries = batch.map(file => ({
-          path: file.path,
-          format: { '.tag': 'jpeg' as const },
-          size: { '.tag': 'w640h480' as const },
-          mode: { '.tag': this.isVideoFile(file.name) ? 'strict' as const : 'bestfit' as const }
-        }));
+        
+        // Only request thumbnails for supported files
+        const entries = batch
+          .filter(file => {
+            const extension = file.name.toLowerCase().slice(file.name.lastIndexOf('.'));
+            return [
+              ...this.SUPPORTED_EXTENSIONS.images,
+              ...this.SUPPORTED_EXTENSIONS.videos
+            ].includes(extension);
+          })
+          .map(file => ({
+            path: file.path,
+            format: { '.tag': 'jpeg' as const },
+            size: { '.tag': 'w640h480' as const },
+            mode: { '.tag': this.isVideoFile(file.name) ? 'strict' as const : 'bestfit' as const }
+          }));
+
+        if (entries.length === 0) continue;
 
         const response = await this.handleApiCall(async (client) => {
           return await client.filesGetThumbnailBatch({ entries });
@@ -227,19 +239,27 @@ export class DropboxService {
 
         // Process thumbnails
         response.entries.forEach((entry, index) => {
+          const originalIndex = files.findIndex(f => f.path === batch[index].path);
+          if (originalIndex === -1) return;
+
           if (entry['.tag'] === 'success' && entry.thumbnail) {
-            const fileIndex = files.findIndex(f => f.path === batch[index].path);
-            if (fileIndex !== -1) {
+            try {
               const base64String = entry.thumbnail;
               const blob = this.base64ToBlob(base64String);
               // Revoke previous URL if it exists
-              if (processedFiles[fileIndex].thumbnailUrl) {
-                URL.revokeObjectURL(processedFiles[fileIndex].thumbnailUrl);
+              if (processedFiles[originalIndex].thumbnailUrl) {
+                URL.revokeObjectURL(processedFiles[originalIndex].thumbnailUrl);
               }
-              processedFiles[fileIndex].thumbnailUrl = URL.createObjectURL(blob);
+              processedFiles[originalIndex].thumbnailUrl = URL.createObjectURL(blob);
+            } catch (error) {
+              console.warn('Failed to process thumbnail for:', batch[index].path, error);
+              // Keep the file but without a thumbnail
+              processedFiles[originalIndex].thumbnailUrl = '';
             }
           } else {
-            console.error('Failed to get thumbnail for entry:', entry);
+            console.warn('No thumbnail available for:', batch[index].path);
+            // Keep the file but without a thumbnail
+            processedFiles[originalIndex].thumbnailUrl = '';
           }
         });
 
@@ -249,6 +269,7 @@ export class DropboxService {
         }
       } catch (error) {
         console.error('Error getting thumbnails for batch:', error);
+        // Continue processing other batches even if one fails
       }
     }
 

@@ -2,18 +2,150 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: 'ABCArizonaFlare';
+  src: url('/fonts/ABCArizonaFlare-Regular-Trial.woff2') format('woff2'),
+       url('/fonts/ABCArizonaFlare-Regular-Trial.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'ABCArizonaFlare';
+  src: url('/fonts/ABCArizonaFlare-Light-Trial.woff2') format('woff2'),
+       url('/fonts/ABCArizonaFlare-Light-Trial.woff') format('woff');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'ABCArizonaSans';
+  src: url('/fonts/ABCArizonaSans-Regular-Trial.woff2') format('woff2'),
+       url('/fonts/ABCArizonaSans-Regular-Trial.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   body {
-    @apply antialiased text-gray-900;
+    @apply antialiased bg-brand-offwhite text-brand-charcoal font-body;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading text-brand-charcoal;
+    letter-spacing: -0.025em;
+  }
+  
+  a {
+    @apply text-brand-forest hover:text-brand-olive transition-colors duration-200;
+  }
+  
+  * {
+    @apply focus:outline-none;
+  }
+  
+  *:focus-visible {
+    @apply ring-2 ring-brand-forest ring-offset-2 ring-offset-brand-offwhite;
   }
 }
 
 @layer components {
   .btn {
-    @apply inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500;
+    @apply inline-flex items-center justify-center px-6 py-3 text-sm font-medium rounded-full shadow-sm font-body text-brand-offwhite bg-brand-forest hover:bg-brand-olive focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-forest transition-all duration-200;
   }
   
   .btn-secondary {
-    @apply inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500;
+    @apply inline-flex items-center justify-center px-6 py-3 text-sm font-medium rounded-full font-body text-brand-charcoal bg-brand-softgray/50 hover:bg-brand-softgray border border-brand-softgray/30 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-forest transition-all duration-200;
+  }
+  
+  .btn-ghost {
+    @apply inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-full font-body text-brand-charcoal hover:bg-brand-softgray/30 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-forest transition-all duration-200;
+  }
+  
+  .card {
+    @apply bg-brand-offwhite rounded-2xl shadow-sm border border-brand-softgray/20 overflow-hidden;
+  }
+  
+  .glass {
+    @apply backdrop-blur-xl bg-brand-offwhite/80 border border-brand-softgray/30;
+  }
+}
+
+/* Animation utilities */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes zoom-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-in {
+  animation-fill-mode: both;
+}
+
+.fade-in {
+  animation-name: fade-in;
+}
+
+.zoom-in {
+  animation-name: zoom-in;
+}
+
+.duration-300 {
+  animation-duration: 300ms;
+}
+
+/* Enhanced border utilities */
+.border-3 {
+  border-width: 3px;
+}
+
+/* Enhanced grid spacing for search results */
+.search-results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .search-results-grid {
+    gap: 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .search-results-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .glass-morphism {
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
   }
 }

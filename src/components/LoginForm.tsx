@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 export const LoginForm: React.FC = () => {
   const { login, verifyOtp, isLoading } = useAuth();
@@ -8,13 +9,14 @@ export const LoginForm: React.FC = () => {
   const [otp, setOtp] = useState('');
   const [showOtpInput, setShowOtpInput] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     try {
-      await login(username, email);
+      await login(email);
       setShowOtpInput(true);
     } catch (err: any) {
       setError(err.message || 'Failed to send OTP');
@@ -22,14 +24,17 @@ export const LoginForm: React.FC = () => {
   };
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
+    console.log('[DEBUG] Submitting OTP:', otp, 'for email:', email);
     e.preventDefault();
     setError(null);
 
     try {
       const verified = await verifyOtp(email, otp);
-      if (!verified) {
-        setError('Invalid OTP');
+      if (verified) {
+        navigate('/'); // Use SPA navigation instead of window.location.href
+        return;
       }
+      setError('Invalid OTP');
     } catch (err: any) {
       setError(err.message || 'Failed to verify OTP');
     }

@@ -3,15 +3,17 @@ import { useAuth } from '../context/AuthContext';
 
 export const AuthForm: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [username, setUsername] = useState(''); // Used for registration
+  const [email, setEmail] = useState(''); // Used for login and registration
+  const [password, setPassword] = useState(''); // Kept for registration, though not used by OTP logic
+  const [confirmPassword, setConfirmPassword] = useState(''); // Kept for registration
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(''); // New state for success messages
   const [showOtpField, setShowOtpField] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
-  const [registrationData, setRegistrationData] = useState<{ email: string; username: string } | null>(null);
+  // Renamed registrationData to pendingOtpVerification
+  const [pendingOtpVerification, setPendingOtpVerification] = useState<{ email: string; usernameForOtpEmail: string } | null>(null);
   const { login, register, verifyOtp, resendOtp, isLoading } = useAuth();
 
   // Timer effect for OTP resend
@@ -34,59 +36,82 @@ export const AuthForm: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
 
     try {
       if (showOtpField) {
+  console.log('[DEBUG] Submitting OTP:', otp, 'for email:', pendingOtpVerification?.email);
         if (!otp) {
           setError('Please enter OTP');
           return;
         }
-        if (!registrationData) {
-          setError('Registration data not found');
+        if (!pendingOtpVerification) { // Updated variable name
+          setError('Verification data not found. Please try again.');
           return;
         }
 
-        const verified = await verifyOtp(registrationData.email, otp);
+        const verified = await verifyOtp(pendingOtpVerification.email, otp);
         if (!verified) {
           setError('Invalid OTP. Please try again.');
+        } else {
+          setSuccess('OTP verified successfully! Redirecting...');
+          setError('');
+          setOtp('');
+          setShowOtpField(false); // Reset OTP field
+          setPendingOtpVerification(null); // Clear pending data
+          // Redirect or update UI as needed, e.g., to dashboard
+          window.location.href = '/'; // Example redirect
         }
         return;
       }
 
       if (isLogin) {
-        if (!username || !password) {
-          setError('Please fill in all fields');
+        if (!email) { // Email is now the primary field for login
+          setError('Please enter your email');
           return;
         }
-        await login(username, password);
-      } else {
+        await login(email); // Call updated login with email only
+        setPendingOtpVerification({ email, usernameForOtpEmail: email.split('@')[0] }); // Store email for OTP verification
+        setShowOtpField(true);
+        setTimeLeft(300); // 5 minutes for OTP
+        setSuccess('OTP has been sent to your email. Please check and enter it below.');
+      } else { // Registration flow
         if (!username || !email || !password || !confirmPassword) {
-          setError('Please fill in all fields');
+          setError('Please fill in all fields for registration');
+          return;
+        }
+        if (password !== confirmPassword) {
+          setError('Passwords do not match');
           return;
         }
 
         const response = await register(username, email, password, confirmPassword);
         if (response.success) {
-          setRegistrationData({ email, username });
+          setPendingOtpVerification({ email, usernameForOtpEmail: username }); // Store email and username for OTP verification
           setShowOtpField(true);
-          setTimeLeft(300); // 5 minutes
-          setError('OTP has been sent to your email');
+          setTimeLeft(300); // 5 minutes for OTP
+          setSuccess('Registration successful! OTP has been sent to your email.');
+          setError(''); // Clear previous errors
         }
+        // No explicit 'else' for response.success === false, as register throws an error on failure
       }
     } catch (err: any) {
       setError(err.message || (isLogin ? 'Login failed' : 'Registration failed'));
+      setSuccess('');
     }
   };
 
   const handleResendOtp = async () => {
-    if (!registrationData || timeLeft > 0) return;
+    if (!pendingOtpVerification || timeLeft > 0) return; // Updated variable name
 
     try {
-      await resendOtp(registrationData.email, registrationData.username);
+      await resendOtp(pendingOtpVerification.email, pendingOtpVerification.usernameForOtpEmail);
       setTimeLeft(300); // Reset timer to 5 minutes
-      setError('OTP has been resent to your email');
+      setSuccess('OTP has been resent to your email.');
+      setError('');
     } catch (err: any) {
       setError(err.message || 'Failed to resend OTP');
+      setSuccess('');
     }
   };
 
@@ -94,13 +119,15 @@ export const AuthForm: React.FC = () => {
     setIsLogin(!isLogin);
     setShowOtpField(false);
     setError('');
+    setSuccess('');
+    // Clear fields based on mode
+    setEmail(''); // Email is common, but good to clear on switch
     setUsername('');
-    setEmail('');
     setPassword('');
     setConfirmPassword('');
     setOtp('');
     setTimeLeft(0);
-    setRegistrationData(null);
+    setPendingOtpVerification(null); // Clear pending data
   };
 
   return (
@@ -118,79 +145,100 @@ export const AuthForm: React.FC = () => {
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          <input type="hidden" name="remember" defaultValue="true" />
           <div className="rounded-md shadow-sm -space-y-px">
             {!showOtpField ? (
               <>
-                <div>
-                  <label htmlFor="username" className="sr-only">
-                    Username
-                  </label>
-                  <input
-                    id="username"
-                    name="username"
-                    type="text"
-                    required
-                    className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-[#6b9e45] focus:border-[#6b9e45] focus:z-10 sm:text-sm"
-                    placeholder="Username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    disabled={isLoading}
-                  />
-                </div>
-
-                {!isLogin && (
+                {isLogin ? (
                   <div>
-                    <label htmlFor="email" className="sr-only">
-                      Email
+                    <label htmlFor="email-address" className="sr-only">
+                      Email address
                     </label>
                     <input
-                      id="email"
+                      id="email-address"
                       name="email"
                       type="email"
+                      autoComplete="email"
                       required
-                      className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-[#6b9e45] focus:border-[#6b9e45] focus:z-10 sm:text-sm"
-                      placeholder="Email (@beforest.co)"
+                      className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-[#6b9e45] focus:border-[#6b9e45] focus:z-10 sm:text-sm"
+                      placeholder="Email address"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       disabled={isLoading}
                     />
                   </div>
-                )}
-
-                <div>
-                  <label htmlFor="password" className="sr-only">
-                    Password
-                  </label>
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    required
-                    className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-[#6b9e45] focus:border-[#6b9e45] focus:z-10 sm:text-sm"
-                    placeholder="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={isLoading}
-                  />
-                </div>
-
-                {!isLogin && (
-                  <div>
-                    <label htmlFor="confirmPassword" className="sr-only">
-                      Confirm Password
-                    </label>
-                    <input
-                      id="confirmPassword"
-                      name="confirmPassword"
-                      type="password"
-                      required
-                      className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-[#6b9e45] focus:border-[#6b9e45] focus:z-10 sm:text-sm"
-                      placeholder="Confirm Password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      disabled={isLoading}
-                    />
-                  </div>
+                ) : (
+                  // Registration fields
+                  <>
+                    <div>
+                      <label htmlFor="username" className="sr-only">
+                        Username
+                      </label>
+                      <input
+                        id="username"
+                        name="username"
+                        type="text"
+                        autoComplete="username"
+                        required
+                        className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-[#6b9e45] focus:border-[#6b9e45] focus:z-10 sm:text-sm"
+                        placeholder="Username"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        disabled={isLoading}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="email-address-register" className="sr-only">
+                        Email address
+                      </label>
+                      <input
+                        id="email-address-register"
+                        name="email"
+                        type="email"
+                        autoComplete="email"
+                        required
+                        className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-[#6b9e45] focus:border-[#6b9e45] focus:z-10 sm:text-sm"
+                        placeholder="Email address"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        disabled={isLoading}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="password" className="sr-only">
+                        Password
+                      </label>
+                      <input
+                        id="password"
+                        name="password"
+                        type="password"
+                        autoComplete="new-password"
+                        required
+                        className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-[#6b9e45] focus:border-[#6b9e45] focus:z-10 sm:text-sm"
+                        placeholder="Password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        disabled={isLoading}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="confirmPassword" className="sr-only">
+                        Confirm Password
+                      </label>
+                      <input
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        type="password"
+                        autoComplete="new-password"
+                        required
+                        className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-[#6b9e45] focus:border-[#6b9e45] focus:z-10 sm:text-sm"
+                        placeholder="Confirm Password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        disabled={isLoading}
+                      />
+                    </div>
+                  </>
                 )}
               </>
             ) : (
@@ -221,7 +269,10 @@ export const AuthForm: React.FC = () => {
           </div>
 
           {error && (
-            <div className="text-red-500 text-sm text-center">{error}</div>
+            <div className="text-red-500 text-sm text-center mt-2">{error}</div>
+          )}
+          {success && (
+            <div className="text-green-500 text-sm text-center mt-2">{success}</div>
           )}
 
           <div className="flex flex-col space-y-4">

@@ -9,6 +9,7 @@ interface SearchResultsProps {
 }
 
 export const SearchResults: React.FC<SearchResultsProps> = ({ results }) => {
+  const safeResults = Array.isArray(results) ? results : [];
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedFileName, setSelectedFileName] = useState<string>('');
   const [loadingVideo, setLoadingVideo] = useState<Record<string, boolean>>({});
@@ -23,22 +24,38 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ results }) => {
   const getVideoUrl = async (file: FileType): Promise<string> => {
     const now = Date.now();
     const cached = videoUrlCache[file.path];
-    
     // Check cache first
     if (cached && (now - cached.timestamp) < VIDEO_CACHE_DURATION) {
       console.log('Using cached video URL');
       return cached.url;
     }
-
-    // Get fresh URL
-    const url = await dropboxService.getVideoLink(file.path);
-    
+    // Try to get a direct download link first
+    let url: string | null = null;
+    try {
+      url = await dropboxService.getDownloadLink(file.path);
+      // Convert to direct link if needed
+      if (url.includes('www.dropbox.com')) {
+        url = dropboxService.convertToDirectLink(url);
+      }
+    } catch (err) {
+      console.warn('Failed to get direct download link, will try temporary link:', err);
+    }
+    // If direct link fails, fallback to temporary link
+    if (!url) {
+      try {
+        url = await dropboxService.getVideoLink(file.path);
+      } catch (err) {
+        console.error('Failed to get video link:', err);
+        throw new Error('Could not get a playable video link.');
+      }
+    }
+    // Optionally use CORS proxy if needed for development (uncomment if required)
+    // url = `https://corsproxy.io/?${encodeURIComponent(url)}`;
     // Update cache
     setVideoUrlCache(prev => ({
       ...prev,
       [file.path]: { url, timestamp: now }
     }));
-
     return url;
   };
 
@@ -71,24 +88,19 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ results }) => {
   };
 
   const handleVideoClick = async (file: FileType) => {
+    // If this video is already selected, close it
+    if (selectedVideo?.path === file.path) {
+      setSelectedVideo(null);
+      return;
+    }
+    setLoadingVideo(prev => ({ ...prev, [file.path]: true }));
     try {
-      // If this video is already selected, close it
-      if (selectedVideo?.path === file.path) {
-        setSelectedVideo(null);
-        return;
-      }
-
-      setLoadingVideo(prev => ({ ...prev, [file.path]: true }));
-      
       const videoUrl = await getVideoUrl(file);
       console.log('Got video URL:', videoUrl);
-      
       if (!videoUrl) {
         throw new Error('Failed to get video URL');
       }
-
       setSelectedVideo({ url: videoUrl, path: file.path });
-      
     } catch (error) {
       console.error('Error getting video URL:', error);
       alert('Failed to load video. Please try again.');
@@ -96,7 +108,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ results }) => {
     } finally {
       setLoadingVideo(prev => ({ ...prev, [file.path]: false }));
     }
-  };
+  }
 
   const handleClosePreview = () => {
     setSelectedImage(null);
@@ -121,16 +133,16 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ results }) => {
   };
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-      {results.map((file) => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 lg:gap-6">
+      {safeResults.map((file, idx) => (
         <div
-          key={file.id}
-          className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200 border border-gray-100 hover:border-[#6b9e45]"
+          key={file.id || idx}
+          className="glass-card group cursor-pointer transform hover:scale-[1.02] transition-all duration-300 ease-out"
         >
-          <div className="relative aspect-square bg-gray-100 overflow-hidden">
+          <div className="relative aspect-square bg-gradient-to-br from-neutral-50 to-neutral-100 overflow-hidden rounded-xl">
             {file.thumbnailUrl ? (
               <div 
-                className="w-full h-full cursor-pointer relative group"
+                className="w-full h-full relative"
                 onClick={() => file.isVideo ? handleVideoClick(file) : handleImageClick(file)}
               >
                 {file.isVideo && playingVideos[file.path] ? (
@@ -140,7 +152,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ results }) => {
                       controls
                       autoPlay
                       preload="auto"
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover rounded-xl"
                       onError={(e) => {
                         const videoElement = e.target as HTMLVideoElement;
                         console.error('Video playback error details:', {
@@ -164,7 +176,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ results }) => {
                     <img
                       src={file.thumbnailUrl}
                       alt={file.name}
-                      className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-200"
+                      className="w-full h-full object-cover rounded-xl transform group-hover:scale-110 transition-transform duration-500 ease-out"
                       loading="lazy"
                       onError={(e) => {
                         console.error('Error loading thumbnail:', file.path);
@@ -175,54 +187,70 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ results }) => {
                       }}
                     />
                     {loadingVideo[file.path] && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40">
-                        <div className="animate-spin rounded-full h-8 w-8 border-4 border-[#6b9e45] border-t-transparent"></div>
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-xl">
+                        <div className="animate-spin rounded-full h-8 w-8 border-3 border-primary border-t-transparent"></div>
                       </div>
                     )}
                     {file.isVideo && !loadingVideo[file.path] && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 group-hover:bg-opacity-40 transition-opacity">
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-all duration-300 rounded-xl">
                         {playingVideos[file.path] ? (
-                          <div className="w-8 h-8 border-2 border-[#6b9e45] rounded-full flex items-center justify-center">
-                            <span className="w-3 h-3 bg-[#6b9e45]"></span>
+                          <div className="w-10 h-10 border-2 border-primary rounded-full flex items-center justify-center bg-white/20 backdrop-blur-sm">
+                            <span className="w-4 h-4 bg-primary rounded-full"></span>
                           </div>
                         ) : (
-                          <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg transform group-hover:scale-105 transition-all">
-                            <Play className="w-5 h-5 text-brand ml-0.5" />
+                          <div className="w-12 h-12 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-all duration-300">
+                            <Play className="w-6 h-6 text-primary ml-0.5" />
                           </div>
                         )}
                       </div>
                     )}
                   </>
                 )}
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-2">
-                  <p className="text-white text-sm truncate">{file.name}</p>
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 p-3 rounded-b-xl">
+                  <p className="text-white text-sm font-medium truncate">{file.name}</p>
                 </div>
               </div>
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-400">
-                No preview
+              <div className="w-full h-full flex items-center justify-center text-neutral-400 rounded-xl">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-neutral-200 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <svg className="w-6 h-6 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <p className="text-xs">No preview</p>
+                </div>
               </div>
             )}
           </div>
-          <div className="p-3">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-gray-800 truncate flex-1" title={file.name}>
-                {file.name}
+          <div className="p-4">
+            <div className="flex items-start justify-between mb-3">
+              <h3 className="text-sm font-semibold text-neutral-800 leading-tight flex-1 mr-2" title={file.name}>
+                {file.name.length > 20 ? `${file.name.substring(0, 20)}...` : file.name}
               </h3>
               <button
-                onClick={() => handleDownload(file.path, file.name)}
-                className="ml-2 p-1 text-gray-600 hover:text-brand transition-colors duration-200"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDownload(file.path, file.name);
+                }}
+                className="p-2 text-neutral-500 hover:text-primary transition-colors duration-200 hover:bg-neutral-100 rounded-lg flex-shrink-0"
                 title="Download file"
               >
-                <Download size={18} />
+                <Download size={16} />
               </button>
             </div>
-            <div className="text-xs text-gray-500">
-              {dropboxService.formatFileSize(file.size)}
+            <div className="space-y-1">
+              <div className="text-xs font-medium text-primary">
+                {dropboxService.formatFileSize(file.size)}
+              </div>
+              <p className="text-xs text-neutral-500">
+                {new Date(file.serverModified).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric'
+                })}
+              </p>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              {new Date(file.serverModified).toLocaleDateString()}
-            </p>
           </div>
         </div>
       ))}
@@ -238,20 +266,23 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ results }) => {
       )}
       {selectedVideo && (
         <div 
-          className="fixed inset-0 z-50 bg-black bg-opacity-75 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300"
           onClick={() => setSelectedVideo(null)}
         >
           <div 
-            className="relative w-full max-w-4xl"
+            className="relative w-full max-w-5xl animate-in zoom-in duration-300"
             onClick={e => e.stopPropagation()}
           >
             <button 
               onClick={() => setSelectedVideo(null)}
-              className="absolute -top-10 right-0 text-white hover:text-gray-300"
+              className="absolute -top-12 right-0 text-white/80 hover:text-white transition-colors text-sm font-medium flex items-center gap-2"
             >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
               Close
             </button>
-            <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+            <div className="relative aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl">
               <video
                 key={selectedVideo.url}
                 src={selectedVideo.url}

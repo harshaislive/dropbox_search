@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Image, Video } from 'lucide-react';
+import { Image, Video } from 'lucide-react';
 import { MediaType, DateFilter } from '../services/api';
 
 interface FiltersProps {
@@ -15,182 +15,132 @@ export const Filters: React.FC<FiltersProps> = ({
   selectedDateFilter,
   setSelectedDateFilter,
 }) => {
-  // Initialize with default selections
-  const [selectedTypes, setSelectedTypes] = React.useState<string[]>(
-    selectedMediaType.fileTypes ? selectedMediaType.fileTypes.split(',').map(t => t.trim()) : ['jpg', 'jpeg', 'png', 'gif']
-  );
-  
-  // Set default date preset to "This Year"
-  const [datePreset, setDatePreset] = React.useState('thisYear');
-  const [showCustomDateRange, setShowCustomDateRange] = React.useState(false);
-
-  // Handle initial mount
-  React.useEffect(() => {
-    // If no filters are set, set defaults
-    if (!selectedMediaType.fileTypes && !selectedDateFilter.startDate && !selectedDateFilter.endDate) {
-      const defaultFilters: DateFilter = {
-        ...selectedDateFilter,
-        startDate: new Date(),
-        endDate: new Date()
-      };
-      setSelectedDateFilter(defaultFilters);
-    }
-  }, []);
-
-  const handleMediaTypeChange = (typeValue: string) => {
-    const extensions = typeValue.split(',').map(ext => ext.trim());
-    const isSelected = extensions.some(ext => selectedTypes.includes(ext));
-    
-    let newSelectedTypes: string[];
-    if (isSelected) {
-      // Remove this media type
-      newSelectedTypes = selectedTypes.filter(type => !extensions.includes(type));
-    } else {
-      // Add this media type
-      newSelectedTypes = [...selectedTypes, ...extensions];
-    }
-
-    // Remove duplicates
-    newSelectedTypes = [...new Set(newSelectedTypes)];
-    
-    setSelectedTypes(newSelectedTypes);
-    setSelectedMediaType({
-      ...selectedMediaType,
-      fileTypes: newSelectedTypes.join(',')
-    });
-  };
-
-  const handleDatePresetChange = (preset: string) => {
-    setDatePreset(preset);
-    setShowCustomDateRange(preset === 'custom');
-
-    if (preset !== 'custom') {
-      const datePreset = [
-        { value: 'today', label: 'Today', getDates: () => ({ start: new Date(), end: new Date() }) },
-        { value: 'yesterday', label: 'Yesterday', getDates: () => ({ start: new Date(new Date().getTime() - 86400000), end: new Date(new Date().getTime() - 86400000) }) },
-        { value: 'last7', label: 'Last 7 Days', getDates: () => ({ start: new Date(new Date().getTime() - 604800000), end: new Date() }) },
-        { value: 'last30', label: 'Last 30 Days', getDates: () => ({ start: new Date(new Date().getTime() - 2592000000), end: new Date() }) },
-        { value: 'lastMonth', label: 'Last Month', getDates: () => ({ start: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1), end: new Date() }) },
-        { value: 'thisYear', label: 'This Year', getDates: () => ({ start: new Date(new Date().getFullYear(), 0, 1), end: new Date() }) },
-        { value: 'custom', label: 'Custom Range', getDates: () => ({ start: null, end: null }) },
-      ].find(d => d.value === preset);
-      if (datePreset) {
-        const { start, end } = datePreset.getDates();
-        setSelectedDateFilter({
-          ...selectedDateFilter,
-          startDate: start,
-          endDate: end
-        });
-      }
-    }
-  };
-
-  const isTypeSelected = (typeValue: string): boolean => {
-    const extensions = typeValue.split(',').map(ext => ext.trim());
-    return extensions.some(ext => selectedTypes.includes(ext));
-  };
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Media Types */}
-      <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Media Type</h3>
-        <p className="text-sm text-gray-600 mb-3">Filter by images or videos</p>
-        <div className="flex gap-3">
-          [
-            { value: 'jpg,jpeg,png,gif', label: 'Images', icon: Image },
-            { value: 'mp4,mov,avi,mkv,webm', label: 'Videos', icon: Video },
-          ].map(type => (
-            <button
-              key={type.value}
-              onClick={() => handleMediaTypeChange(type.value)}
-              className={`flex-1 flex items-center justify-center px-4 py-3 rounded-lg border transition-all ${
-                isTypeSelected(type.value)
-                  ? 'bg-[#6b9e45]/10 border-[#6b9e45] text-[#6b9e45] shadow-sm'
-                  : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <type.icon className="w-5 h-5 mr-2" />
-              <span className="text-sm font-medium">{type.label}</span>
-            </button>
-          ))}
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <h3 className="text-base font-medium text-brand-charcoal font-heading">Media Type</h3>
+          <p className="text-sm text-brand-charcoal/60 font-body">Filter by content type</p>
+        </div>
+        
+        <div className="grid grid-cols-3 gap-3">
+          <button
+            onClick={() => setSelectedMediaType('all')}
+            className={`group relative flex items-center justify-center px-4 py-3 rounded-xl border transition-all duration-200 font-body ${
+              selectedMediaType === 'all'
+                ? 'bg-brand-forest/10 border-brand-forest text-brand-forest shadow-sm ring-1 ring-brand-forest/20'
+                : 'border-brand-softgray/30 text-brand-charcoal hover:bg-brand-softgray/20 hover:border-brand-softgray/50'
+            }`}
+          >
+            <span className="relative text-sm font-medium">All Files</span>
+          </button>
+
+          <button
+            onClick={() => setSelectedMediaType('images')}
+            className={`group relative flex items-center justify-center px-4 py-3 rounded-xl border transition-all duration-200 font-body ${
+              selectedMediaType === 'images'
+                ? 'bg-brand-forest/10 border-brand-forest text-brand-forest shadow-sm ring-1 ring-brand-forest/20'
+                : 'border-brand-softgray/30 text-brand-charcoal hover:bg-brand-softgray/20 hover:border-brand-softgray/50'
+            }`}
+          >
+            <Image className={`w-4 h-4 mr-2 transition-colors duration-200 ${
+              selectedMediaType === 'images' ? 'text-brand-forest' : 'text-brand-charcoal/60'
+            }`} />
+            <span className="relative text-sm font-medium">Images</span>
+          </button>
+
+          <button
+            onClick={() => setSelectedMediaType('videos')}
+            className={`group relative flex items-center justify-center px-4 py-3 rounded-xl border transition-all duration-200 font-body ${
+              selectedMediaType === 'videos'
+                ? 'bg-brand-forest/10 border-brand-forest text-brand-forest shadow-sm ring-1 ring-brand-forest/20'
+                : 'border-brand-softgray/30 text-brand-charcoal hover:bg-brand-softgray/20 hover:border-brand-softgray/50'
+            }`}
+          >
+            <Video className={`w-4 h-4 mr-2 transition-colors duration-200 ${
+              selectedMediaType === 'videos' ? 'text-brand-forest' : 'text-brand-charcoal/60'
+            }`} />
+            <span className="relative text-sm font-medium">Videos</span>
+          </button>
         </div>
       </div>
 
       {/* Date Range */}
-      <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Date Range</h3>
-        <div className="space-y-4">
-          <select
-            value={datePreset}
-            onChange={(e) => handleDatePresetChange(e.target.value)}
-            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#6b9e45] focus:ring-[#6b9e45]"
-          >
-            [
-              { value: 'today', label: 'Today' },
-              { value: 'yesterday', label: 'Yesterday' },
-              { value: 'last7', label: 'Last 7 Days' },
-              { value: 'last30', label: 'Last 30 Days' },
-              { value: 'lastMonth', label: 'Last Month' },
-              { value: 'thisYear', label: 'This Year' },
-              { value: 'custom', label: 'Custom Range' },
-            ].map(preset => (
-              <option key={preset.value} value={preset.value}>
-                {preset.label}
-              </option>
-            ))}
-          </select>
-
-          {showCustomDateRange && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Start Date</label>
-                <input
-                  type="date"
-                  value={selectedDateFilter.startDate ? selectedDateFilter.startDate.toISOString().split('T')[0] : ''}
-                  onChange={(e) => {
-                    const date = e.target.value ? new Date(e.target.value) : null;
-                    setSelectedDateFilter({
-                      ...selectedDateFilter,
-                      startDate: date
-                    });
-                  }}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#6b9e45] focus:ring-[#6b9e45]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">End Date</label>
-                <input
-                  type="date"
-                  value={selectedDateFilter.endDate ? selectedDateFilter.endDate.toISOString().split('T')[0] : ''}
-                  onChange={(e) => {
-                    const date = e.target.value ? new Date(e.target.value) : null;
-                    setSelectedDateFilter({
-                      ...selectedDateFilter,
-                      endDate: date
-                    });
-                  }}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#6b9e45] focus:ring-[#6b9e45]"
-                />
-              </div>
-            </div>
-          )}
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <h3 className="text-base font-medium text-brand-charcoal font-heading">Date Range</h3>
+          <p className="text-sm text-brand-charcoal/60 font-body">When files were created</p>
         </div>
-      </div>
+        
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
+          <button
+            onClick={() => setSelectedDateFilter('all')}
+            className={`px-3 py-2 text-xs font-medium rounded-lg border transition-all duration-200 font-body ${
+              selectedDateFilter === 'all'
+                ? 'bg-brand-forest text-brand-offwhite border-brand-forest shadow-sm'
+                : 'border-brand-softgray/30 text-brand-charcoal/70 hover:bg-brand-softgray/20 hover:border-brand-softgray/50'
+            }`}
+          >
+            All Time
+          </button>
 
-      {/* Sort By */}
-      <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Sort By</h3>
-        <select
-          value={selectedMediaType.sortBy}
-          onChange={(e) => setSelectedMediaType({ ...selectedMediaType, sortBy: e.target.value })}
-          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#6b9e45] focus:ring-[#6b9e45]"
-        >
-          <option value="relevance">Relevance</option>
-          <option value="date">Date Modified</option>
-          <option value="name">Name</option>
-        </select>
+          <button
+            onClick={() => setSelectedDateFilter('today')}
+            className={`px-3 py-2 text-xs font-medium rounded-lg border transition-all duration-200 font-body ${
+              selectedDateFilter === 'today'
+                ? 'bg-brand-forest text-brand-offwhite border-brand-forest shadow-sm'
+                : 'border-brand-softgray/30 text-brand-charcoal/70 hover:bg-brand-softgray/20 hover:border-brand-softgray/50'
+            }`}
+          >
+            Today
+          </button>
+
+          <button
+            onClick={() => setSelectedDateFilter('this_week')}
+            className={`px-3 py-2 text-xs font-medium rounded-lg border transition-all duration-200 font-body ${
+              selectedDateFilter === 'this_week'
+                ? 'bg-brand-forest text-brand-offwhite border-brand-forest shadow-sm'
+                : 'border-brand-softgray/30 text-brand-charcoal/70 hover:bg-brand-softgray/20 hover:border-brand-softgray/50'
+            }`}
+          >
+            This Week
+          </button>
+
+          <button
+            onClick={() => setSelectedDateFilter('this_month')}
+            className={`px-3 py-2 text-xs font-medium rounded-lg border transition-all duration-200 font-body ${
+              selectedDateFilter === 'this_month'
+                ? 'bg-brand-forest text-brand-offwhite border-brand-forest shadow-sm'
+                : 'border-brand-softgray/30 text-brand-charcoal/70 hover:bg-brand-softgray/20 hover:border-brand-softgray/50'
+            }`}
+          >
+            This Month
+          </button>
+
+          <button
+            onClick={() => setSelectedDateFilter('last_month')}
+            className={`px-3 py-2 text-xs font-medium rounded-lg border transition-all duration-200 font-body ${
+              selectedDateFilter === 'last_month'
+                ? 'bg-brand-forest text-brand-offwhite border-brand-forest shadow-sm'
+                : 'border-brand-softgray/30 text-brand-charcoal/70 hover:bg-brand-softgray/20 hover:border-brand-softgray/50'
+            }`}
+          >
+            Last Month
+          </button>
+
+          <button
+            onClick={() => setSelectedDateFilter('this_year')}
+            className={`px-3 py-2 text-xs font-medium rounded-lg border transition-all duration-200 font-body ${
+              selectedDateFilter === 'this_year'
+                ? 'bg-brand-forest text-brand-offwhite border-brand-forest shadow-sm'
+                : 'border-brand-softgray/30 text-brand-charcoal/70 hover:bg-brand-softgray/20 hover:border-brand-softgray/50'
+            }`}
+          >
+            This Year
+          </button>
+        </div>
       </div>
     </div>
   );
-}
+};
