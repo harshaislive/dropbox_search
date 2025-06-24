@@ -1,4 +1,5 @@
 import { Dropbox, DropboxResponse, files } from 'dropbox';
+import { DROPBOX_APP_KEY, DROPBOX_APP_SECRET, DROPBOX_REFRESH_TOKEN, validateRequiredEnv } from '../config/env';
 
 // Types
 export interface FileType {
@@ -36,18 +37,27 @@ export class DropboxService {
   private accessToken: string | null = null;
 
   constructor() {
-    this.appKey = import.meta.env.VITE_DROPBOX_APP_KEY || '';
-    this.appSecret = import.meta.env.VITE_DROPBOX_APP_SECRET || '';
-    this.refreshToken = import.meta.env.VITE_DROPBOX_REFRESH_TOKEN || '';
+    // Validate environment variables on initialization
+    const validation = validateRequiredEnv();
+    
+    this.appKey = DROPBOX_APP_KEY;
+    this.appSecret = DROPBOX_APP_SECRET;
+    this.refreshToken = DROPBOX_REFRESH_TOKEN;
 
-    if (!this.appKey || !this.appSecret || !this.refreshToken) {
-      console.error('Missing required environment variables');
+    if (!validation.isValid) {
+      console.error('❌ Missing required Dropbox environment variables:', validation.missing);
+      console.error('📋 Please set these variables in Railway dashboard:');
+      validation.missing.forEach(variable => {
+        console.error(`   • ${variable}`);
+      });
+      // Don't throw error here, let the app handle it gracefully
+    } else {
+      console.log('✅ Dropbox environment variables configured correctly');
+      // Initialize Dropbox client
+      this.initializeClient().catch(error => {
+        console.error('Failed to initialize Dropbox client:', error);
+      });
     }
-
-    // Initialize Dropbox client
-    this.initializeClient().catch(error => {
-      console.error('Failed to initialize Dropbox client:', error);
-    });
   }
 
   private async initializeClient(): Promise<void> {
@@ -70,6 +80,10 @@ export class DropboxService {
   }
 
   private async refreshAccessToken(): Promise<string> {
+    if (!this.appKey || !this.appSecret || !this.refreshToken) {
+      throw new Error('Missing Dropbox credentials. Please check your environment variables.');
+    }
+
     try {
       console.log('Refreshing access token with credentials:', {
         appKey: this.appKey ? 'present' : 'missing',
@@ -97,6 +111,11 @@ export class DropboxService {
           statusText: response.statusText,
           error: errorText
         });
+        
+        if (response.status === 400) {
+          throw new Error('Invalid Dropbox credentials. Please check your VITE_DROPBOX_APP_KEY, VITE_DROPBOX_APP_SECRET, and VITE_DROPBOX_REFRESH_TOKEN in Railway.');
+        }
+        
         throw new Error(`Failed to refresh access token: ${response.status} ${response.statusText}`);
       }
 
@@ -109,7 +128,28 @@ export class DropboxService {
     }
   }
 
+  // Check if service is properly configured
+  public isConfigured(): boolean {
+    return !!(this.appKey && this.appSecret && this.refreshToken);
+  }
+
+  // Get configuration status for UI
+  public getConfigurationStatus() {
+    return {
+      configured: this.isConfigured(),
+      missing: {
+        appKey: !this.appKey,
+        appSecret: !this.appSecret,
+        refreshToken: !this.refreshToken,
+      }
+    };
+  }
+
   private async getDropboxClient(): Promise<Dropbox> {
+    if (!this.isConfigured()) {
+      throw new Error('Dropbox service is not properly configured. Please check your environment variables.');
+    }
+
     try {
       if (!this.accessToken) {
         console.log('Getting new access token...');
@@ -172,63 +212,36 @@ export class DropboxService {
     return this.SUPPORTED_EXTENSIONS.videos.includes(extension);
   }
 
-  private isDateInRange(date: string, filter: DateFilter): boolean {
+  private isDateInRange(dateStr: string, filter: DateFilter): boolean {
     if (filter === 'all') return true;
-    
-    const fileDate = new Date(date);
-    
-    // Create fresh date objects to avoid mutation
-    const today = new Date();
-    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    
-    // Calculate start of this week (Sunday)
-    const thisWeek = new Date(today);
-    const startOfThisWeek = new Date(thisWeek.setDate(thisWeek.getDate() - thisWeek.getDay()));
-    startOfThisWeek.setHours(0, 0, 0, 0);
-    
-    // Calculate start of this month
-    const startOfThisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    
-    // Calculate last month range
-    const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59, 999);
-    
-    // Calculate start of this year
-    const startOfThisYear = new Date(today.getFullYear(), 0, 1);
 
-    console.log(`[Date Filter Debug] Filtering ${date} (${fileDate.toISOString()}) with filter: ${filter}`);
+    const fileDate = new Date(dateStr);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     switch (filter) {
-      case 'today': {
-        const isToday = fileDate >= startOfToday;
-        console.log(`[Date Filter] Today check: ${isToday} (file: ${fileDate.toDateString()}, today start: ${startOfToday.toDateString()})`);
-        return isToday;
-      }
-        
-      case 'this_week': {
-        const isThisWeek = fileDate >= startOfThisWeek;
-        console.log(`[Date Filter] This week check: ${isThisWeek} (file: ${fileDate.toDateString()}, week start: ${startOfThisWeek.toDateString()})`);
-        return isThisWeek;
-      }
-        
-      case 'this_month': {
-        const isThisMonth = fileDate >= startOfThisMonth;
-        console.log(`[Date Filter] This month check: ${isThisMonth} (file: ${fileDate.toDateString()}, month start: ${startOfThisMonth.toDateString()})`);
-        return isThisMonth;
-      }
-        
-      case 'last_month': {
-        const isLastMonth = fileDate >= startOfLastMonth && fileDate <= endOfLastMonth;
-        console.log(`[Date Filter] Last month check: ${isLastMonth} (file: ${fileDate.toDateString()}, range: ${startOfLastMonth.toDateString()} - ${endOfLastMonth.toDateString()})`);
-        return isLastMonth;
-      }
-        
-      case 'this_year': {
-        const isThisYear = fileDate >= startOfThisYear;
-        console.log(`[Date Filter] This year check: ${isThisYear} (file: ${fileDate.toDateString()}, year start: ${startOfThisYear.toDateString()})`);
-        return isThisYear;
-      }
-        
+      case 'today':
+        const fileDateOnly = new Date(fileDate.getFullYear(), fileDate.getMonth(), fileDate.getDate());
+        return fileDateOnly.getTime() === today.getTime();
+
+      case 'this_week':
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay());
+        return fileDate >= startOfWeek;
+
+      case 'this_month':
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        return fileDate >= startOfMonth;
+
+      case 'last_month':
+        const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+        return fileDate >= startOfLastMonth && fileDate <= endOfLastMonth;
+
+      case 'this_year':
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+        return fileDate >= startOfYear;
+
       default:
         return true;
     }
@@ -324,110 +337,51 @@ export class DropboxService {
     return new Blob([ab], { type: 'image/jpeg' });
   }
 
-  async searchFiles({ query, mediaType = 'all', dateFilter = 'all', cursor }: SearchOptions): Promise<SearchResponse> {
-    if (!query?.trim()) {
-      console.log('Empty search query, returning empty results');
-      return { files: [], hasMore: false, cursor: null, total: 0 };
-    }
-
+  private async searchFiles(query: string, cursor?: string | null): Promise<{ files: any[], cursor: string | null, hasMore: boolean }> {
+    const dropbox = await this.getDropboxClient();
+    
     try {
-      console.log('Starting search with:', { query, mediaType, dateFilter, cursor });
-      
-      // Validate credentials
-      if (!this.appKey || !this.appSecret || !this.refreshToken) {
-        console.error('Missing Dropbox credentials:', {
-          appKey: this.appKey ? 'present' : 'missing',
-          appSecret: this.appSecret ? 'present' : 'missing',
-          refreshToken: this.refreshToken ? 'present' : 'missing'
-        });
-        throw new Error('Missing Dropbox credentials');
-      }
-
-      const searchStartTime = performance.now();
-      
-      let searchResponse;
-      if (cursor) {
-        console.log('Continuing search with cursor:', cursor);
-        searchResponse = await this.handleApiCall<files.SearchV2Result>(async (client) => {
-          return await client.filesSearchContinueV2({ cursor });
-        });
-      } else {
-        console.log('Starting new search with query:', query);
-        const searchOptions = {
-          query,
-          options: {
-            path: '',
-            max_results: 50,
-            file_status: { '.tag': 'active' as const },
-            filename_only: false,
-            file_categories: mediaType === 'all' 
-              ? [{ '.tag': 'image' }, { '.tag': 'video' }]
-              : mediaType === 'images' 
-                ? [{ '.tag': 'image' }]
-                : [{ '.tag': 'video' }]
-          }
-        };
-        console.log('Search options:', JSON.stringify(searchOptions, null, 2));
-        
-        searchResponse = await this.handleApiCall<files.SearchV2Result>(async (client) => {
-          return await client.filesSearchV2(searchOptions);
-        });
-      }
-
-      const searchEndTime = performance.now();
-      console.log(`Search API call took ${((searchEndTime - searchStartTime) / 1000).toFixed(2)}s`);
-
-      if (!searchResponse) {
-        throw new Error('No response received from Dropbox API');
-      }
-
-      const matches = searchResponse.matches || [];
-      console.log(`Found ${matches.length} initial matches`);
-      
-      const files: FileType[] = [];
-
-      for (const match of matches) {
-        if (match.metadata['.tag'] === 'metadata' && match.metadata.metadata['.tag'] === 'file') {
-          const metadata = match.metadata.metadata;
-          const isVideo = this.isVideoFile(metadata.name);
-          
-          // Skip if we're filtering by type and this doesn't match
-          if ((mediaType === 'images' && isVideo) || (mediaType === 'videos' && !isVideo)) {
-            continue;
-          }
-
-          // Skip if the file doesn't match the date filter
-          if (!this.isDateInRange(metadata.server_modified, dateFilter)) {
-            continue;
-          }
-
-          files.push({
-            id: metadata.id,
-            path: metadata.path_display || metadata.path_lower || '',
-            name: metadata.name,
-            isVideo,
-            thumbnailUrl: '', // Will be populated by getThumbnailsBatch
-            serverModified: metadata.server_modified,
-            size: metadata.size || 0
-          });
+      const searchOptions = {
+        query,
+        options: {
+          path: '',
+          max_results: 100,
+          file_status: { '.tag': 'active' as const },
+          filename_only: false,
+          file_categories: [
+            { '.tag': 'image' as const },
+            { '.tag': 'video' as const }
+          ]
         }
+      };
+
+      let result: DropboxResponse<files.SearchV2Result>;
+      
+      if (cursor) {
+        result = await dropbox.filesSearchContinueV2({ cursor });
+      } else {
+        result = await dropbox.filesSearchV2(searchOptions);
       }
 
-      console.log(`Filtered to ${files.length} matching files`);
-
-      let filesWithThumbnails = files;
-      if (files.length > 0) {
-        const thumbnailStartTime = performance.now();
-        filesWithThumbnails = await this.getThumbnailsBatch(files);
-        const thumbnailEndTime = performance.now();
-        console.log(`Thumbnail generation took ${((thumbnailEndTime - thumbnailStartTime) / 1000).toFixed(2)}s`);
-      }
+      const files = result.result.matches.map((match: any) => {
+        // Type assertion for metadata access
+        const metadata = match.metadata?.metadata || match.metadata;
+        
+        return {
+          id: metadata.id,
+          name: metadata.name,
+          path: metadata.path_lower,
+          serverModified: metadata.server_modified,
+          size: metadata.size || 0,
+          isVideo: this.isVideoFile(metadata.name),
+          thumbnailUrl: ''
+        };
+      });
 
       return {
-        files: filesWithThumbnails,
-        hasMore: searchResponse.has_more || false,
-        cursor: searchResponse.cursor || null,
-        total: cursor ? undefined : matches.length
+        files,
+        cursor: result.result.cursor || null,
+        hasMore: result.result.has_more
       };
     } catch (error) {
       console.error('Search failed:', error);
@@ -435,48 +389,94 @@ export class DropboxService {
     }
   }
 
-  async continueSearch(cursor: string): Promise<SearchResponse> {
-    if (!cursor) {
-      throw new Error('Cursor is required for continuing search');
+  public async searchMedia(options: SearchOptions): Promise<SearchResponse> {
+    if (!this.isConfigured()) {
+      return {
+        files: [],
+        hasMore: false,
+        cursor: null,
+        total: 0
+      };
     }
 
     try {
-      const searchResponse = await this.handleApiCall(async (client) => {
-        return await client.filesSearchContinueV2({ cursor });
+      const searchStart = performance.now();
+      const { files, cursor, hasMore } = await this.searchFiles(options.query, options.cursor);
+      
+      let filteredFiles = files;
+
+      // Apply media type filter
+      if (options.mediaType && options.mediaType !== 'all') {
+        filteredFiles = files.filter(file => {
+          if (options.mediaType === 'images') return !file.isVideo;
+          if (options.mediaType === 'videos') return file.isVideo;
+          return true;
+        });
+      }
+
+      // Apply date filter
+      if (options.dateFilter && options.dateFilter !== 'all') {
+        filteredFiles = filteredFiles.filter(file => 
+          this.isDateInRange(file.serverModified, options.dateFilter!)
+        );
+      }
+
+      // Get thumbnails in batches
+      const batchSize = 25;
+      const batches: any[][] = [];
+      for (let i = 0; i < filteredFiles.length; i += batchSize) {
+        const batch = filteredFiles.slice(i, i + batchSize);
+        batches.push(batch);
+      }
+
+      // Process batches concurrently (limit to 3 concurrent batches)
+      const processedFiles: FileType[] = [];
+      for (let i = 0; i < batches.length; i += 3) {
+        const concurrentBatches = batches.slice(i, i + 3);
+        const batchPromises = concurrentBatches.map(async (batch) => {
+          return Promise.all(
+            batch.map(async (file) => {
+              try {
+                if (!file.isVideo) {
+                  const thumbnail = await this.getThumbnail(file.path);
+                  return { ...file, thumbnailUrl: thumbnail };
+                }
+                return file;
+              } catch {
+                return file;
+              }
+            })
+          );
+        });
+
+        const batchResults = await Promise.all(batchPromises);
+        processedFiles.push(...batchResults.flat());
+      }
+
+      const searchEnd = performance.now();
+      const searchDuration = Math.round(searchEnd - searchStart);
+      
+      console.log(`Search completed in ${searchDuration}ms`, {
+        total: files.length,
+        afterFilters: filteredFiles.length,
+        mediaType: options.mediaType,
+        dateFilter: options.dateFilter
       });
 
-      const matches = searchResponse.matches || [];
-      const files: FileType[] = [];
-
-      for (const match of matches) {
-        const metadata = match.metadata.metadata;
-        if (metadata['.tag'] === 'file') {
-          const isVideo = this.isVideoFile(metadata.path_lower || '');
-          files.push({
-            id: metadata.id,
-            path: metadata.path_lower || '',
-            name: metadata.name,
-            isVideo,
-            thumbnailUrl: '', // Will be populated by getThumbnailsBatch
-            serverModified: metadata.server_modified,
-            size: metadata.size || 0
-          });
-        }
-      }
-
-      let filesWithThumbnails = files;
-      if (files.length > 0) {
-        filesWithThumbnails = await this.getThumbnailsBatch(files);
-      }
-
       return {
-        files: filesWithThumbnails,
-        hasMore: searchResponse.has_more || false,
-        cursor: searchResponse.cursor || null
+        files: processedFiles,
+        hasMore,
+        cursor,
+        total: filteredFiles.length
       };
-    } catch (error) {
-      console.error('Continue search failed:', error);
-      throw error;
+    } catch {
+      // Return empty results if not configured or error occurs
+      return {
+        files: [],
+        hasMore: false,
+        cursor: null,
+        total: 0
+      };
     }
   }
 

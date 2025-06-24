@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react';
+import { N8N_WEBHOOK_URL, validateRequiredEnv } from '../config/env';
 
 // Types
 interface User {
@@ -16,6 +17,7 @@ interface AuthContextType {
   logout: () => void;
   register: (username: string, email: string, password?: string, confirmPassword?: string) => Promise<{ success: boolean }>;
   resendOtp: (email: string, username: string) => Promise<void>;
+  isAuthConfigured: () => boolean;
 }
 
 interface StoredUser {
@@ -28,7 +30,6 @@ interface StoredUser {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Environment variables with fallbacks
-const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL || '';
 const NODE_ENV = import.meta.env.MODE || 'development';
 const IS_PRODUCTION = NODE_ENV === 'production';
 const ANALYTICS_ENABLED = import.meta.env.VITE_ANALYTICS_ENABLED === 'true';
@@ -83,146 +84,120 @@ const _sendOtpInternal = async (email: string, usernameForEmail: string) => {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  React.useEffect(() => {
-    console.log('[DEBUG] AuthProvider mounted');
-    return () => {
-      console.log('[DEBUG] AuthProvider unmounted');
-    };
-  }, []);
-
-  // Synchronously load user from localStorage during initial render
-  const [user, setUser] = useState<StoredUser | null>(() => {
-    try {
-      const storedUser = localStorage.getItem('user');
-      if (!storedUser) return null;
-      
-      const parsedUser = JSON.parse(storedUser) as StoredUser;
-      const now = Date.now();
-      
-      // Check if session is still valid
-      if (parsedUser.sessionExpiry && now < parsedUser.sessionExpiry) {
-        userStore.set(parsedUser.email, parsedUser);
-        return parsedUser;
-      }
-      
-      // Clear expired session
-      localStorage.removeItem('user');
-      return null;
-    } catch (error) {
-      console.error('Error loading user from localStorage:', error);
-      return null;
-    }
+  const [user, setUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('auth_user');
+    return saved ? JSON.parse(saved) : null;
   });
   
-  const [isLoading, setIsLoading] = useState(!user); // Set loading to false if we have a user
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Effect to handle auth state changes and persist to localStorage
   useEffect(() => {
-    if (user) {
-      // When user logs in or is restored
-      localStorage.setItem('user', JSON.stringify(user));
-      setIsLoading(false);
-    } else {
-      // When user logs out
-      localStorage.removeItem('user');
-      setIsLoading(false);
-    }
-  }, [user]);
-
-  // This effect only logs the user state without modifying it
-  useEffect(() => {
-    console.log('[DEBUG] AuthContext user:', user, 'isAuthenticated:', !!user);
-  }, [user]);
-
-  const login = useCallback(async (email: string) => {
-    const usernameForEmail = email.split('@')[0]; // Derive username for email personalization
-    try {
-      await _sendOtpInternal(email, usernameForEmail);
-      // OTP is sent, user will verify it next. No user state change here.
-    } catch (error) {
-      logError('Login OTP Send', error);
-      // Ensure the error message thrown is user-friendly or generic
-      throw new Error(error instanceof Error ? error.message : 'Failed to initiate login. Please try again.');
-    }
-  }, []);
-
-  const verifyOtp = useCallback(async (email: string, otp: string): Promise<boolean> => {
-    console.log('[DEBUG] Verifying OTP for email:', JSON.stringify(email), 'with OTP:', JSON.stringify(otp));
-    const storedOtp = otpStore.get(email);
-    console.log('[DEBUG] Stored OTP for email:', JSON.stringify(storedOtp));
-    if (!storedOtp) {
-      return false;
-    }
-    if (storedOtp !== otp) {
-      // Do NOT delete the OTP if wrong, allow retry
-      return false;
-    }
-    // Only clear OTP if correct
-    otpStore.delete(email);
-
-    const username = email.split('@')[0];
-    const isAdmin = ANALYTICS_ENABLED && ANALYTICS_ADMIN_EMAILS.includes(username);
-    // Always set sessionExpiry to 7 days from now unless overridden by env
-    const defaultSessionDuration = 7 * 24 * 60 * 60 * 1000;
-    const sessionDuration = parseInt(import.meta.env.VITE_ANALYTICS_SESSION_DURATION || `${defaultSessionDuration}`);
-    const sessionExpiry = Date.now() + (isNaN(sessionDuration) ? defaultSessionDuration : sessionDuration);
+    // Validate environment variables on initialization
+    const validation = validateRequiredEnv();
     
-    const userData: StoredUser = {
-      username,
-      email,
-      isAdmin,
-      sessionExpiry,
-    };
-
-    setUser(userData);
-    userStore.set(email, userData);
-    usernameIndex.set(username.toLowerCase(), email);
-    localStorage.setItem('user', JSON.stringify(userData));
-
-    return true;
+    if (!validation.isValid) {
+      console.warn('⚠️ Some environment variables are missing:');
+      validation.missing.forEach(variable => {
+        console.warn(`   • ${variable}`);
+      });
+      
+      if (!N8N_WEBHOOK_URL) {
+        console.warn('⚠️ N8N_WEBHOOK_URL environment variable is not set - authentication features may not work properly');
+        console.warn('📋 Please set VITE_N8N_WEBHOOK_URL in your Railway dashboard if you want to use OTP authentication');
+      }
+    } else {
+      console.log('✅ Authentication environment variables configured correctly');
+    }
   }, []);
 
-  const register = useCallback(async (username: string, email: string, password?: string, confirmPassword?: string): Promise<{ success: boolean }> => {
-    // Basic validation, passwords are not used by OTP logic but kept for potential future use
-    if (!username || !email) {
-      throw new Error('Username and email are required.');
+  const sendOTP = async (email: string) => {
+    if (!N8N_WEBHOOK_URL) {
+      throw new Error('Authentication service is not configured. Please check your environment variables.');
     }
-    if (password && password !== confirmPassword) {
-      throw new Error('Passwords do not match');
-    }
-    // validateEmail is called inside _sendOtpInternal
 
+    setIsLoading(true);
     try {
-      await _sendOtpInternal(email, username); // Use the provided username for the registration email
-      return { success: true }; // Indicates OTP was sent
-    } catch (error) {
-      logError('Register OTP Send', error);
-      throw new Error(error instanceof Error ? error.message : 'Failed to send registration OTP. Please try again.');
-    }
-  }, []);
+      const response = await fetch(N8N_WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          action: 'send_otp'
+        }),
+      });
 
-  const resendOtp = useCallback(async (email: string, username: string) => {
-    // validateEmail is called inside _sendOtpInternal
+      if (!response.ok) {
+        throw new Error(`Failed to send OTP: ${response.status}`);
+      }
+
+      const result = await response.json();
+      return result;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const verifyOTP = async (email: string, otp: string) => {
+    if (!N8N_WEBHOOK_URL) {
+      throw new Error('Authentication service is not configured. Please check your environment variables.');
+    }
+
+    setIsLoading(true);
     try {
-      await _sendOtpInternal(email, username);
-    } catch (error) {
-      logError('Resend OTP', error);
-      throw new Error(error instanceof Error ? error.message : 'Failed to resend OTP. Please try again.');
-    }
-  }, []);
+      const response = await fetch(N8N_WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          otp,
+          action: 'verify_otp'
+        }),
+      });
 
-  const logout = useCallback(() => {
-    if (user) {
-      userStore.delete(user.email);
-      usernameIndex.delete(user.username.toLowerCase());
+      if (!response.ok) {
+        throw new Error(`Failed to verify OTP: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        const userData = { email, otpVerified: true };
+        setUser(userData);
+        localStorage.setItem('auth_user', JSON.stringify(userData));
+        return result;
+      } else {
+        throw new Error(result.message || 'OTP verification failed');
+      }
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  const logout = () => {
     setUser(null);
-    localStorage.removeItem('user');
-    console.log('[DEBUG] logout called, setUser(null)');
-  }, [user]);
+    localStorage.removeItem('auth_user');
+  };
+
+  // Check if authentication is properly configured
+  const isAuthConfigured = () => {
+    return !!N8N_WEBHOOK_URL;
+  };
+
+  const value: AuthContextType = {
+    user,
+    isLoading,
+    sendOTP,
+    verifyOTP,
+    logout,
+    isAuthConfigured
+  };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, verifyOtp, logout, register, resendOtp }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
