@@ -2,11 +2,24 @@ import React from 'react';
 import { LogOut, Image } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { isGalleryEnabled } from '../../utils/config';
 
-export const Header: React.FC = () => {
+interface HeaderProps {
+  showHeader?: boolean;
+}
+
+export const Header: React.FC<HeaderProps> = ({ showHeader = true }) => {
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const galleryEnabled = isGalleryEnabled();
+
+  if (!showHeader) return null;
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-brand-offwhite/80 border-b border-brand-softgray/30">
@@ -30,18 +43,20 @@ export const Header: React.FC = () => {
           {/* Navigation */}
           {isAuthenticated && (
             <div className="flex items-center space-x-4">
-              {/* Gallery Link */}
-              <button
-                onClick={() => navigate('/gallery')}
-                className={`group flex items-center space-x-2 px-3 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                  location.pathname.startsWith('/gallery')
-                    ? 'bg-brand-forest text-brand-offwhite'
-                    : 'text-brand-charcoal hover:bg-brand-softgray/50 hover:text-brand-forest'
-                }`}
-              >
-                <Image className="h-4 w-4" />
-                <span className="hidden sm:inline">Gallery</span>
-              </button>
+              {/* Gallery Link - conditionally rendered */}
+              {galleryEnabled && (
+                <button
+                  onClick={() => navigate('/gallery')}
+                  className={`group flex items-center space-x-2 px-3 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                    location.pathname.startsWith('/gallery')
+                      ? 'bg-brand-forest text-brand-offwhite'
+                      : 'text-brand-charcoal hover:bg-brand-softgray/50 hover:text-brand-forest'
+                  }`}
+                >
+                  <Image className="h-4 w-4" />
+                  <span className="hidden sm:inline">Gallery</span>
+                </button>
+              )}
 
               {/* Upload Button */}
               <a
@@ -71,7 +86,7 @@ export const Header: React.FC = () => {
 
               {/* Logout Button */}
               <button
-                onClick={logout}
+                onClick={handleLogout}
                 className="group flex items-center justify-center w-9 h-9 rounded-full text-brand-charcoal hover:text-brand-red hover:bg-brand-softgray/50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-forest focus:ring-offset-2 focus:ring-offset-brand-offwhite"
                 aria-label="Sign out"
               >

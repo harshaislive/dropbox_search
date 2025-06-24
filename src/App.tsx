@@ -7,6 +7,7 @@ import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { SearchContainer } from './components/SearchContainer';
 import GalleryList from './components/gallery/GalleryList';
 import GalleryDetail from './components/gallery/GalleryDetail';
+import { isGalleryEnabled, isAnalyticsEnabled, getAnalyticsAdminEmails } from './utils/config';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
@@ -15,10 +16,9 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 const AnalyticsRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const isAnalyticsEnabled = import.meta.env.VITE_ANALYTICS_ENABLED === 'true';
-  const isAnalyticsUser = user?.email && isAnalyticsEnabled && 
-    (import.meta.env.VITE_ANALYTICS_ADMIN_EMAILS || '').split(',').some((email: string) => 
-      user.email.toLowerCase().includes(email.toLowerCase().trim())
+  const isAnalyticsUser = user?.email && isAnalyticsEnabled() && 
+    getAnalyticsAdminEmails().some((email: string) => 
+      user.email.toLowerCase().includes(email.toLowerCase())
     );
   
   if (!isAnalyticsUser) {
@@ -28,6 +28,8 @@ const AnalyticsRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 };
 
 const App: React.FC = () => {
+  const galleryEnabled = isGalleryEnabled();
+
   return (
     <AuthProvider>
       <Router>
@@ -60,27 +62,32 @@ const App: React.FC = () => {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/gallery"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <GalleryList />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/gallery/:galleryId"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <GalleryDetail />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route path="/gallery/:galleryId/edit" element={<div>Edit Gallery (Coming Soon)</div>} />
+          {/* Gallery routes - conditionally rendered */}
+          {galleryEnabled && (
+            <>
+              <Route
+                path="/gallery"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <GalleryList />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/gallery/:galleryId"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <GalleryDetail />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/gallery/:galleryId/edit" element={<div>Edit Gallery (Coming Soon)</div>} />
+            </>
+          )}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
