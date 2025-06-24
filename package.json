@@ -5,10 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && cd backend && npm ci && npm run build",
-    "start": "cd backend && npm start",
-    "install:all": "npm ci && cd backend && npm ci",
-    "init:db": "cd backend && ts-node init-db.ts",
+    "build": "vite build",
+    "start": "vite preview",
+    "install:all": "npm ci",
     "lint": "eslint .",
     "preview": "vite preview"
   },
