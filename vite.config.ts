@@ -30,10 +30,17 @@ export default defineConfig(({ mode }) => {
       'process.env': envWithStringifiedValues,
     },
     server: {
-      // Enable HMR
+      // Development server config
+      host: '0.0.0.0', // Allow external connections
+      port: 5173,
       hmr: true,
-      // Handle 404s in SPA
       historyApiFallback: true,
+    },
+    preview: {
+      // Production preview server config (for Railway)
+      host: '0.0.0.0', // Bind to all interfaces
+      port: parseInt(process.env.PORT || '4173'), // Use Railway's PORT or default to 4173
+      strictPort: true, // Exit if port is already in use
     },
   };
 });
