@@ -7,6 +7,20 @@ export interface FileType {
   lastModified: string;
   url?: string;
   thumbnailUrl?: string;
+  isVideo?: boolean;
+  serverModified?: string;
+  path_display?: string;
+}
+
+// Dropbox API file structure (extended version)
+export interface DropboxFile {
+  id: string;
+  name: string;
+  path_display: string;
+  size: number;
+  server_modified: string;
+  thumbnailUrl?: string;
+  isVideo?: boolean;
 }
 
 export type MediaType = 'all' | 'image' | 'video' | 'document';

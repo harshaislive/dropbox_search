@@ -8,7 +8,7 @@ import GalleryCreateModal from './gallery/GalleryCreateModal';
 import { createGallery } from '../services/galleryApi';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import LoadingSpinner from './LoadingSpinner';
+import { LoadingSpinner } from './LoadingSpinner';
 import type { DropboxFile } from '../types';
 import { isGalleryEnabled } from '../utils/config';
 
@@ -487,10 +487,9 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
       {/* Gallery Create Modal - only show if gallery features are enabled */}
       {galleryEnabled && (
         <GalleryCreateModal
-          isOpen={showCreateModal}
+          open={showCreateModal}
           onClose={() => setShowCreateModal(false)}
           onSubmit={handleCreateGallery}
-          loading={isCreatingGallery}
         />
       )}
 
