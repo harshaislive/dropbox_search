@@ -4,6 +4,14 @@ import { dropboxService } from './api';
 
 const supabaseUrl = process.env.SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Missing Supabase environment variables:', {
+    supabaseUrl: supabaseUrl ? 'present' : 'missing',
+    supabaseAnonKey: supabaseAnonKey ? 'present' : 'missing'
+  });
+}
+
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Helper: resolve Dropbox paths to temporary URLs for a gallery object

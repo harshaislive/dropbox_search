@@ -6,9 +6,21 @@ import { useAuth } from '../context/AuthContext';
 import { FileType, MediaType, DateFilter } from '../services/api';
 import { Search } from 'lucide-react';
 
+interface SearchMetadata {
+  searchTerm: string;
+  totalResults: number;
+  imageCount: number;
+  videoCount: number;
+  searchDuration: number;
+  mediaType: MediaType;
+  dateFilter: DateFilter;
+  hasMore: boolean;
+}
+
 export const SearchContainer: React.FC = () => {
   const { user } = useAuth();
   const [searchResults, setSearchResults] = useState<FileType[]>([]);
+  const [searchMetadata, setSearchMetadata] = useState<SearchMetadata | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,11 +39,18 @@ export const SearchContainer: React.FC = () => {
     console.log('[DEBUG] User typed search:', value);
   };
 
+  const calculateResultBreakdown = (files: FileType[]) => {
+    const imageCount = files.filter(file => !file.isVideo).length;
+    const videoCount = files.filter(file => file.isVideo).length;
+    return { imageCount, videoCount };
+  };
+
   const handleSearch = useCallback(async () => {
     const term = searchTermRef.current;
     console.log('[DEBUG] Performing search with:', term);
     if (!term.trim()) {
       setSearchResults([]);
+      setSearchMetadata(null);
       return;
     }
 
@@ -55,14 +74,27 @@ export const SearchContainer: React.FC = () => {
         });
       }
 
+      const { imageCount, videoCount } = calculateResultBreakdown(results.files);
+
       setSearchResults(results.files);
       setCursor(results.cursor || null);
       setHasMore(!!results.hasMore);
+      setSearchMetadata({
+        searchTerm: term,
+        totalResults: results.files.length,
+        imageCount,
+        videoCount,
+        searchDuration: duration,
+        mediaType,
+        dateFilter,
+        hasMore: !!results.hasMore
+      });
 
     } catch (err) {
       console.error('Search error:', err);
       setError('Failed to search files. Please try again.');
       setSearchResults([]);
+      setSearchMetadata(null);
     } finally {
       setIsLoading(false);
     }
@@ -77,6 +109,7 @@ export const SearchContainer: React.FC = () => {
       searchTimeout.current = setTimeout(handleSearch, 500);
     } else {
       setSearchResults([]);
+      setSearchMetadata(null);
     }
 
     return () => {
@@ -92,10 +125,25 @@ export const SearchContainer: React.FC = () => {
     setIsLoadingMore(true);
     try {
       const results = await dropboxService.continueSearch(cursor);
-      setSearchResults(prev => [...prev, ...results.files]);
+      const newFiles = [...searchResults, ...results.files];
+      const { imageCount, videoCount } = calculateResultBreakdown(newFiles);
+      
+      setSearchResults(newFiles);
       setCursor(results.cursor || null);
       setHasMore(!!results.hasMore);
-    } catch (err) {
+      
+      // Update metadata with new totals
+      if (searchMetadata) {
+        setSearchMetadata({
+          ...searchMetadata,
+          totalResults: newFiles.length,
+          imageCount,
+          videoCount,
+          hasMore: !!results.hasMore
+        });
+      }
+    } catch (error) {
+      console.error('Load more error:', error);
       setError('Failed to load more results.');
     } finally {
       setIsLoadingMore(false);
@@ -155,6 +203,11 @@ export const SearchContainer: React.FC = () => {
         </div>
       ) : (
         <>
+          {/* Search Results Header with Statistics */}
+          {searchMetadata && searchResults.length > 0 && (
+            <SearchResultsHeader metadata={searchMetadata} />
+          )}
+          
           <SearchResults results={searchResults} />
           {hasMore && (
             <div className="flex justify-center mt-4">
@@ -167,8 +220,89 @@ export const SearchContainer: React.FC = () => {
               </button>
             </div>
           )}
+          
+          {searchMetadata && searchResults.length === 0 && (
+            <div className="text-center py-12 text-gray-500">
+              <div className="text-lg font-medium mb-2">No results found</div>
+              <div className="text-sm">
+                No files found for "{searchMetadata.searchTerm}"
+                {searchMetadata.mediaType !== 'all' && (
+                  <span> in {searchMetadata.mediaType}</span>
+                )}
+                {searchMetadata.dateFilter !== 'all' && (
+                  <span> from {searchMetadata.dateFilter.replace('_', ' ')}</span>
+                )}
+              </div>
+            </div>
+          )}
         </>
       )}
     </>
+  );
+};
+
+// Search Results Header Component
+const SearchResultsHeader: React.FC<{ metadata: SearchMetadata }> = ({ metadata }) => {
+  const formatSearchDuration = (ms: number) => {
+    if (ms < 1000) return `${ms}ms`;
+    return `${(ms / 1000).toFixed(1)}s`;
+  };
+
+  const getFilterText = (mediaType: MediaType, dateFilter: DateFilter) => {
+    const parts = [];
+    if (mediaType !== 'all') {
+      parts.push(mediaType);
+    }
+    if (dateFilter !== 'all') {
+      parts.push(dateFilter.replace('_', ' '));
+    }
+    return parts.length > 0 ? parts.join(', ') : 'all files';
+  };
+
+  const getResultBreakdown = () => {
+    const parts = [];
+    if (metadata.imageCount > 0) {
+      parts.push(`${metadata.imageCount} image${metadata.imageCount !== 1 ? 's' : ''}`);
+    }
+    if (metadata.videoCount > 0) {
+      parts.push(`${metadata.videoCount} video${metadata.videoCount !== 1 ? 's' : ''}`);
+    }
+    return parts.join(', ');
+  };
+
+  return (
+    <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
+      <div className="bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl p-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+            <h2 className="text-lg font-semibold text-gray-900">
+              {metadata.totalResults} result{metadata.totalResults !== 1 ? 's' : ''} for "{metadata.searchTerm}"
+            </h2>
+            <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
+              {getResultBreakdown() && (
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 bg-brand-forest rounded-full"></span>
+                  {getResultBreakdown()}
+                </span>
+              )}
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
+                {getFilterText(metadata.mediaType, metadata.dateFilter)}
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
+                found in {formatSearchDuration(metadata.searchDuration)}
+              </span>
+              {metadata.hasMore && (
+                <span className="flex items-center gap-1 text-brand-forest font-medium">
+                  <span className="w-2 h-2 bg-brand-forest rounded-full animate-pulse"></span>
+                  more available
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };

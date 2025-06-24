@@ -173,26 +173,62 @@ export class DropboxService {
   }
 
   private isDateInRange(date: string, filter: DateFilter): boolean {
+    if (filter === 'all') return true;
+    
     const fileDate = new Date(date);
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    
+    // Create fresh date objects to avoid mutation
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    
+    // Calculate start of this week (Sunday)
+    const thisWeek = new Date(today);
+    const startOfThisWeek = new Date(thisWeek.setDate(thisWeek.getDate() - thisWeek.getDay()));
+    startOfThisWeek.setHours(0, 0, 0, 0);
+    
+    // Calculate start of this month
+    const startOfThisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    
+    // Calculate last month range
+    const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59, 999);
+    
+    // Calculate start of this year
+    const startOfThisYear = new Date(today.getFullYear(), 0, 1);
+
+    console.log(`[Date Filter Debug] Filtering ${date} (${fileDate.toISOString()}) with filter: ${filter}`);
 
     switch (filter) {
-      case 'today':
-        return fileDate >= startOfDay;
-      case 'this_week':
-        return fileDate >= startOfWeek;
-      case 'this_month':
-        return fileDate >= startOfMonth;
-      case 'last_month':
-        return fileDate >= startOfLastMonth && fileDate <= endOfLastMonth;
-      case 'this_year':
-        return fileDate >= startOfYear;
+      case 'today': {
+        const isToday = fileDate >= startOfToday;
+        console.log(`[Date Filter] Today check: ${isToday} (file: ${fileDate.toDateString()}, today start: ${startOfToday.toDateString()})`);
+        return isToday;
+      }
+        
+      case 'this_week': {
+        const isThisWeek = fileDate >= startOfThisWeek;
+        console.log(`[Date Filter] This week check: ${isThisWeek} (file: ${fileDate.toDateString()}, week start: ${startOfThisWeek.toDateString()})`);
+        return isThisWeek;
+      }
+        
+      case 'this_month': {
+        const isThisMonth = fileDate >= startOfThisMonth;
+        console.log(`[Date Filter] This month check: ${isThisMonth} (file: ${fileDate.toDateString()}, month start: ${startOfThisMonth.toDateString()})`);
+        return isThisMonth;
+      }
+        
+      case 'last_month': {
+        const isLastMonth = fileDate >= startOfLastMonth && fileDate <= endOfLastMonth;
+        console.log(`[Date Filter] Last month check: ${isLastMonth} (file: ${fileDate.toDateString()}, range: ${startOfLastMonth.toDateString()} - ${endOfLastMonth.toDateString()})`);
+        return isLastMonth;
+      }
+        
+      case 'this_year': {
+        const isThisYear = fileDate >= startOfThisYear;
+        console.log(`[Date Filter] This year check: ${isThisYear} (file: ${fileDate.toDateString()}, year start: ${startOfThisYear.toDateString()})`);
+        return isThisYear;
+      }
+        
       default:
         return true;
     }

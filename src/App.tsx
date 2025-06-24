@@ -80,7 +80,6 @@ const App: React.FC = () => {
               </ProtectedRoute>
             }
           />
-          {/* Placeholder for edit, can be implemented later */}
           <Route path="/gallery/:galleryId/edit" element={<div>Edit Gallery (Coming Soon)</div>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

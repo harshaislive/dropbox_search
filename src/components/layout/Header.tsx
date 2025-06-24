@@ -1,9 +1,12 @@
 import React from 'react';
-import { LogOut } from 'lucide-react';
+import { LogOut, Image } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 export const Header: React.FC = () => {
   const { user, logout, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-brand-offwhite/80 border-b border-brand-softgray/30">
@@ -11,7 +14,7 @@ export const Header: React.FC = () => {
         <div className="flex items-center justify-between h-16">
           {/* Logo and Brand */}
           <div className="flex items-center space-x-4">
-            <div className="flex-shrink-0">
+            <div className="flex-shrink-0 cursor-pointer" onClick={() => navigate('/')}>
               <img 
                 src="https://beforest.co/wp-content/uploads/2024/10/23-Beforest-Black-with-Tagline.png#6421" 
                 alt="Beforest" 
@@ -24,9 +27,22 @@ export const Header: React.FC = () => {
             </span>
           </div>
 
-          {/* User Actions */}
+          {/* Navigation */}
           {isAuthenticated && (
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-4">
+              {/* Gallery Link */}
+              <button
+                onClick={() => navigate('/gallery')}
+                className={`group flex items-center space-x-2 px-3 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                  location.pathname.startsWith('/gallery')
+                    ? 'bg-brand-forest text-brand-offwhite'
+                    : 'text-brand-charcoal hover:bg-brand-softgray/50 hover:text-brand-forest'
+                }`}
+              >
+                <Image className="h-4 w-4" />
+                <span className="hidden sm:inline">Gallery</span>
+              </button>
+
               {/* Upload Button */}
               <a
                 href="https://dropboxuploader-production.up.railway.app/"
