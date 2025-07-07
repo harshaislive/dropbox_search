@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    console.log(`✅ Retrieved ${enhancedResults.length} recent images (page ${page}/${totalPages})`);
+    console.log(`[RECENT] Retrieved ${enhancedResults.length} recent images (page ${page}/${totalPages})`);
 
     return NextResponse.json({
       results: enhancedResults,

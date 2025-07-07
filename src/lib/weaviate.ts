@@ -1,11 +1,7 @@
 import weaviate, { WeaviateClient } from 'weaviate-ts-client';
-import fetch from 'node-fetch';
 import { SEARCH_CONFIG as CONFIG, QUERY_EXPANSIONS } from './search-config';
 
-// Polyfill fetch for Node.js environment
-if (typeof globalThis.fetch === 'undefined') {
-  globalThis.fetch = fetch as any;
-}
+// Note: Next.js provides fetch polyfill, no need to import node-fetch
 
 let client: WeaviateClient | null = null;
 
@@ -64,9 +60,10 @@ export interface SearchResult {
   similarity: number;
   public_url?: string;
   thumbnail_url?: string;
+  download_url?: string;
   file_type?: string;
   file_size?: number;
-  source: 'vector' | 'text' | 'hybrid';
+  source: 'vector' | 'text' | 'hybrid' | 'dropbox' | 'unknown';
   metadata?: Record<string, any>;
   // Advanced scoring fields from plan.md
   composite_score?: number;
@@ -125,7 +122,7 @@ async function getClipEmbedding(text: string): Promise<number[]> {
     }
     
     const data: any = await response.json();
-    console.log(`✅ Received text embedding with ${data.dimensions} dimensions`);
+    console.log(`[WEAVIATE] Received text embedding with ${data.dimensions} dimensions`);
     return data.embedding; // 512-dimensional vector
   } catch (error) {
     console.error('CLIP text embedding error:', error);
@@ -682,7 +679,7 @@ export async function advancedSearchVectors(params: SearchParams): Promise<Searc
     return finalResults;
 
   } catch (error) {
-    console.error('💥 Error in advanced search:', error);
+    console.error('[WEAVIATE] Error in advanced search:', error);
     // Fallback to standard search
     return searchVectors(params);
   }
@@ -715,7 +712,7 @@ export async function searchVectors(params: SearchParams): Promise<SearchResult[
         source: 'vector',
         result: { ...result, source: 'vector' as const }
       })));
-      console.log(`✅ Vector search found ${vectorResults.length} results`);
+      console.log(`[WEAVIATE] Vector search found ${vectorResults.length} results`);
     } catch (error) {
       console.log('⚠️ Vector search not available, falling back to text search');
     }
@@ -728,7 +725,7 @@ export async function searchVectors(params: SearchParams): Promise<SearchResult[
         source: 'text', 
         result: { ...result, source: 'text' as const }
       })));
-      console.log(`✅ Text search found ${textResults.length} results`);
+      console.log(`[WEAVIATE] Text search found ${textResults.length} results`);
     } catch (error) {
       console.log('❌ Text search failed:', error);
     }
@@ -742,7 +739,7 @@ export async function searchVectors(params: SearchParams): Promise<SearchResult[
     return uniqueResults;
 
   } catch (error) {
-    console.error('💥 Error in dual search:', error);
+    console.error('[WEAVIATE] Error in dual search:', error);
     throw new Error('Failed to search vectors');
   }
 }
@@ -755,7 +752,7 @@ export async function fallbackSearch(params: SearchParams): Promise<SearchResult
     console.log('🔄 Performing fallback text-only search...');
     return await performTextSearch(client, query, className, limit, offset);
   } catch (error) {
-    console.error('💥 Fallback search failed:', error);
+    console.error('[WEAVIATE] Fallback search failed:', error);
     return [];
   }
 }
@@ -813,7 +810,7 @@ export async function searchByImageVector(
     });
 
   } catch (error) {
-    console.error('💥 Image vector search failed:', error);
+    console.error('[WEAVIATE] Image vector search failed:', error);
     return [];
   }
 } 

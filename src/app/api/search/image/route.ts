@@ -44,7 +44,7 @@ async function getImageEmbedding(imageFile: File): Promise<number[]> {
     }
 
     const data = await response.json();
-    console.log(`✅ Received embedding with ${data.dimensions} dimensions`);
+    console.log(`[IMG] Received embedding with ${data.dimensions} dimensions`);
     return data.embedding; // 512-dimensional vector
   } catch (error) {
     console.error('Image embedding error:', error);
@@ -229,7 +229,7 @@ export async function POST(request: NextRequest) {
     const endIndex = offset + limit;
     const paginatedResults = filteredResults.slice(startIndex, endIndex);
     
-    console.log(`📄 Returning page ${Math.floor(offset / limit) + 1}: results ${startIndex + 1}-${Math.min(endIndex, filteredResults.length)} of ${filteredResults.length}`);
+    console.log(`[IMG] Returning page ${Math.floor(offset / limit) + 1}: results ${startIndex + 1}-${Math.min(endIndex, filteredResults.length)} of ${filteredResults.length}`);
 
     // Enhance results with fresh Dropbox URLs
     const enhancedResults = await Promise.all(
@@ -283,7 +283,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response);
 
   } catch (error) {
-    console.error('💥 Error in image search:', error);
+    console.error('[IMG] Error in image search:', error);
     return NextResponse.json({
       results: [],
       totalFound: 0,

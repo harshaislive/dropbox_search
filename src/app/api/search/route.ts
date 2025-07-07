@@ -231,7 +231,7 @@ export async function POST(request: NextRequest) {
     const endIndex = offset + limit;
     const searchResults = filteredResults.slice(startIndex, endIndex);
   
-      console.log(`📄 Returning page ${Math.floor(offset / 21) + 1}: results ${startIndex + 1}-${Math.min(endIndex, filteredResults.length)} of ${filteredResults.length}`);
+      console.log(`[SEARCH] Returning page ${Math.floor(offset / 21) + 1}: results ${startIndex + 1}-${Math.min(endIndex, filteredResults.length)} of ${filteredResults.length}`);
 
     console.log(`📊 Search completed using ${searchStrategy}, found ${searchResults.length} results`);
 
@@ -239,18 +239,28 @@ export async function POST(request: NextRequest) {
     const enhancedResults = await Promise.all(
       searchResults.slice(0, 21).map(async (result) => { // Ensure max 21 results per page
         try {
-          // Get fresh thumbnail and download URLs concurrently
-          const [thumbnailUrl, downloadUrl] = await Promise.all([
-            getDropboxThumbnail(result.dropbox_path).catch(() => null),
-            generateDropboxDownloadLink(result.dropbox_path).catch(() => null)
-          ]);
+          // Only fetch new URLs if we don't have them already
+          let thumbnailUrl = result.thumbnail_url;
+          let downloadUrl = result.download_url || result.public_url;
+          
+          // Force thumbnail and download URL generation for videos, or if we don't have URLs
+          const isVideo = result.file_name?.toLowerCase().match(/\.(mp4|avi|mov|mkv|wmv|flv|webm|m4v|mpg|mpeg|3gp|ogv)$/);
+          
+          if (!thumbnailUrl || !downloadUrl || isVideo) {
+            const [newThumbnail, newDownload] = await Promise.all([
+              (!thumbnailUrl || isVideo) ? getDropboxThumbnail(result.dropbox_path).catch(() => null) : Promise.resolve(null),
+              !downloadUrl ? generateDropboxDownloadLink(result.dropbox_path).catch(() => null) : Promise.resolve(null)
+            ]);
+            
+            if (newThumbnail) thumbnailUrl = newThumbnail;
+            if (newDownload) downloadUrl = newDownload;
+          }
 
           return {
             ...result,
-            // Use fresh URLs if available, fallback to stored URLs
-            thumbnail_url: thumbnailUrl || result.thumbnail_url || undefined,
+            thumbnail_url: thumbnailUrl || undefined,
             download_url: downloadUrl || undefined,
-            public_url: downloadUrl || result.public_url || undefined,
+            public_url: downloadUrl || undefined,
             // Ensure similarity is a percentage (normalized to 0-100%)
             similarity_percentage: Math.round(Math.min(100, ((result.composite_score || result.similarity) || 0) * 100)),
             // Add search metadata
@@ -324,9 +334,9 @@ export async function POST(request: NextRequest) {
       }
     };
 
-    console.log(`✅ Search API completed in ${processingTime}ms`);
+    console.log(`[SEARCH] API completed in ${processingTime}ms`);
     console.log(`📈 Results breakdown: ${vectorResults} vector, ${textResults} text, ${enhancedResults.length} total`);
-    console.log(`📄 Pagination: page ${response.currentPage}, hasMore: ${hasMore}`);
+    console.log(`[SEARCH] Pagination: page ${response.currentPage}, hasMore: ${hasMore}`);
     
     if (useAdvanced && compositeScores.length > 0) {
       console.log(`🎯 Advanced scoring: composite range ${Math.min(...compositeScores).toFixed(3)}-${Math.max(...compositeScores).toFixed(3)}`);
@@ -335,7 +345,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response);
 
   } catch (error) {
-    console.error('💥 Search API error:', error);
+    console.error('[SEARCH] API error:', error);
     const processingTime = Date.now() - startTime;
     
     return NextResponse.json({

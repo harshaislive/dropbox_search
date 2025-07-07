@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import Glassmorphism Styles */
+@import './glassmorphism.css';
+
+/* Import Gallery Styles */
+@import './gallery.css';
+
 /* Beforest Brand Colors */
 :root {
   /* Primary Colors */
