@@ -426,25 +426,31 @@ export default function BeforestImageSearch() {
       {/* Search Controls */}
       <div className="gallery-search-controls">
         <form onSubmit={handleSearch} className="gallery-search-bar">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <div className="relative group">
+            <Search className="absolute left-5 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 transition-colors group-focus-within:text-[var(--beforest-forest-green)]" />
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search photos and videos..."
-              className="gallery-search-input pl-12"
+              placeholder="Search your photos and videos..."
+              className="gallery-search-input"
               disabled={loading}
             />
             <button
               type="submit"
               disabled={loading || !query.trim()}
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 px-4 py-2 bg-[var(--beforest-forest-green)] text-white rounded-lg disabled:opacity-50 text-sm font-medium hover:bg-[var(--beforest-olive-green)] transition-colors"
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 px-6 py-3 bg-gradient-to-r from-[var(--beforest-forest-green)] to-[var(--beforest-olive-green)] text-white rounded-full disabled:opacity-50 text-sm font-medium hover:shadow-lg hover:scale-105 transition-all duration-200 disabled:hover:scale-100 disabled:hover:shadow-none flex items-center gap-2"
             >
               {loading ? (
-                <Loader2 className="animate-spin w-4 h-4" />
+                <>
+                  <Loader2 className="animate-spin w-4 h-4" />
+                  <span>Searching...</span>
+                </>
               ) : (
-                <span>Search ({searchMode === 'smart' ? 'Smart' : 'Files'})</span>
+                <>
+                  <Search className="w-4 h-4" />
+                  <span>{searchMode === 'smart' ? 'Smart Search' : 'File Search'}</span>
+                </>
               )}
             </button>
           </div>
@@ -552,10 +558,10 @@ export default function BeforestImageSearch() {
 
         {/* Date Filters */}
         {showFilters && (
-          <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-            <div className="flex items-center gap-4 justify-center">
+          <div className="mt-6 p-6 bg-white rounded-2xl border border-gray-100 shadow-sm">
+            <div className="flex items-center gap-6 justify-center flex-wrap">
               <div className="gallery-date-filter">
-                <label className="text-sm text-gray-600">From:</label>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">From:</label>
                 <input
                   type="date"
                   value={dateFilter.start || ''}
@@ -572,7 +578,7 @@ export default function BeforestImageSearch() {
                 />
               </div>
               <div className="gallery-date-filter">
-                <label className="text-sm text-gray-600">To:</label>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">To:</label>
                 <input
                   type="date"
                   value={dateFilter.end || ''}
@@ -599,9 +605,9 @@ export default function BeforestImageSearch() {
                   setTotalResults(0);
                   setHasMore(false);
                 }}
-                className="px-3 py-1 text-sm text-gray-600 hover:text-gray-900"
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
               >
-                Clear
+                Clear Dates
               </button>
             </div>
           </div>
@@ -610,12 +616,15 @@ export default function BeforestImageSearch() {
 
       {/* Search Mode Indicator */}
       {query && (
-        <div className="text-center py-2 bg-gray-50 border-b">
-          <span className="text-sm text-gray-600">
-            Ready to search with <strong>{searchMode === 'smart' ? 'Smart Search' : 'File Search'}</strong>
-            {mediaType !== 'all' && ` for ${mediaType}`}
-            {(dateFilter.start || dateFilter.end) && ' with date filters'}
-          </span>
+        <div className="text-center py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
+          <div className="flex items-center justify-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${searchMode === 'smart' ? 'bg-blue-500' : 'bg-green-500'}`}></div>
+            <span className="text-sm font-medium text-gray-700">
+              Ready to search with <span className={`font-semibold ${searchMode === 'smart' ? 'text-blue-600' : 'text-green-600'}`}>{searchMode === 'smart' ? 'Smart Search' : 'File Search'}</span>
+              {mediaType !== 'all' && <span className="text-gray-500"> for {mediaType}</span>}
+              {(dateFilter.start || dateFilter.end) && <span className="text-gray-500"> with date filters</span>}
+            </span>
+          </div>
         </div>
       )}
 
