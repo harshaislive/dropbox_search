@@ -164,18 +164,18 @@ export async function POST(request: NextRequest) {
     // Always get 120 results for proper sorting and pagination
     console.log('📊 Retrieving 120 results for complete dataset...');
     
-    // Use advanced multi-stage retrieval by default
+    // Use vector-only search for smart search
     if (useAdvanced) {
-      console.log('🎯 Using advanced multi-stage retrieval pipeline...');
+      console.log('🎯 Using vector-only smart search with re-ranking...');
       allSearchResults = await advancedSearchVectors({
         query,
         className: 'DropboxFile',
-        limit: 120, // Always get 120 results
+        limit: 120, // Final limit after re-ranking
         offset: 0,  // Always start from beginning for sorting
         certainty: 0.7,
         useAdvanced: true
       });
-      searchStrategy = 'advanced_multi_stage';
+      searchStrategy = 'vector_reranked';
     } else {
       console.log('🔍 Using standard dual search strategy...');
       allSearchResults = await searchVectors({

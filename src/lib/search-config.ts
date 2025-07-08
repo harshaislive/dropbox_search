@@ -6,9 +6,9 @@
 export const SEARCH_CONFIG = {
   // Vector search settings from right_now.md (optimized values)
   vector_search: {
-    distance_threshold: 1.5,  // Optimized for your 13,875 files dataset
-    initial_limit_multiplier: 3,  // Get 3x results for advanced filtering
-    min_similarity_score: 0.3,
+    distance_threshold: 1.2,  // Slightly relaxed to get more candidates (was 1.0)
+    initial_retrieval_limit: 200,  // Get 200 results for re-ranking
+    min_similarity_score: 0.4,  // Lower threshold since we'll re-rank (was 0.5)
     clip_api_url: 'https://clipserver-production.up.railway.app',
     vector_dimensions: 512  // CLIP standard
   },
@@ -22,9 +22,9 @@ export const SEARCH_CONFIG = {
 
   // Advanced composite scoring weights from plan.md
   scoring_weights: {
-    vector_similarity: 0.6,  // Primary semantic understanding
-    text_relevance: 0.3,     // Exact text matches
-    tag_relevance: 0.1       // Tag-based relevance
+    vector_similarity: 0.75,  // Increased weight for semantic understanding (was 0.6)
+    text_relevance: 0.20,     // Reduced for exact matches (was 0.3)
+    tag_relevance: 0.05       // Minimal tag weight (was 0.1)
   },
 
   // Quality assessment thresholds from plan.md

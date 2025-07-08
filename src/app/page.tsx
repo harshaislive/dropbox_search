@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Search, Download, Loader2, Calendar, X, ChevronLeft, ChevronRight, Copy, Check, Play, Pause, Volume2, VolumeX, Filter, ImageIcon, Brain, Folder } from 'lucide-react';
+import { Search, Download, Loader2, Calendar, X, ChevronLeft, ChevronRight, Copy, Check, Play, Pause, Volume2, VolumeX, Filter, ImageIcon, Folder } from 'lucide-react';
 import Link from 'next/link';
 import VideoThumbnail from '../components/VideoThumbnail';
 import ResponsiveThumbnail from '../components/ResponsiveThumbnail';
@@ -61,7 +61,6 @@ export default function BeforestImageSearch() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [totalResults, setTotalResults] = useState(0);
-  const [searchMode, setSearchMode] = useState<'smart' | 'files'>('smart');
   const [mediaType, setMediaType] = useState<'all' | 'images' | 'videos'>('all');
   const [cursor, setCursor] = useState<string | undefined>(undefined);
   const [dateFilter, setDateFilter] = useState<DateFilter>({});
@@ -106,32 +105,16 @@ export default function BeforestImageSearch() {
       let apiEndpoint: string;
       let requestBody: any = {};
 
-      console.log(`[SEARCH] Mode: ${searchMode}, API will be:`, searchMode === 'smart' ? '/api/search' : '/api/search/dropbox');
+      // Always use Dropbox file search
+      apiEndpoint = '/api/search/dropbox';
+      requestBody = {
+        query: searchQuery,
+        max_results: resultsPerPage,
+        cursor: useCursor || cursor,
+        search_type: mediaType === 'videos' ? 'video' : 'media'
+      };
       
-      if (searchMode === 'smart') {
-        apiEndpoint = '/api/search';
-        const offset = (pageNum - 1) * resultsPerPage;
-        requestBody = {
-          query: searchQuery,
-          limit: resultsPerPage,
-          offset,
-          useAdvanced: true,
-          filters: {
-            dateRange: dateFilter,
-            fileTypes: mediaType !== 'all' ? [mediaType === 'videos' ? 'video' : 'image'] : [],
-            sortBy: 'date',
-            sortOrder: 'desc'
-          }
-        };
-      } else {
-        apiEndpoint = '/api/search/dropbox';
-        requestBody = {
-          query: searchQuery,
-          max_results: resultsPerPage,
-          cursor: useCursor || cursor,
-          search_type: mediaType === 'videos' ? 'video' : 'media'
-        };
-      }
+      console.log(`[SEARCH] Using Dropbox file search API:`, apiEndpoint);
       
       console.log(`[SEARCH] Using endpoint: ${apiEndpoint}`, requestBody);
       console.log(`[SEARCH] Cursor values - useCursor: ${useCursor}, current cursor state: ${cursor}`);
@@ -202,8 +185,7 @@ export default function BeforestImageSearch() {
     setActiveVideoId(null);
     setIsPlaying(false);
     
-    // Show which mode we're using
-    console.log(`[SEARCH] Starting search with mode: ${searchMode}, query: "${query}"`);
+    console.log(`[SEARCH] Starting search with query: "${query}"`);
     
     searchImages(query, 1, false);
   };
@@ -407,23 +389,23 @@ export default function BeforestImageSearch() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-3">
+        <div className="max-w-7xl mx-auto px-4 py-3 sm:py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               <img 
                 src="/23-Beforest-Black-with-Tagline.png" 
                 alt="Beforest" 
-                className="h-7 w-auto"
+                className="h-5 sm:h-7 w-auto"
               />
               <div className="hidden md:block w-px h-5 bg-gray-300" />
-              <h1 className="text-lg font-semibold text-gray-900">Gallery</h1>
+              <h1 className="text-base sm:text-lg font-semibold text-gray-900 hidden sm:block">Gallery</h1>
             </div>
             
             <Link 
               href="/recent"
-              className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
+              className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-1 sm:py-2 text-xs sm:text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
             >
-              <Calendar className="w-4 h-4" />
+              <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Recent</span>
             </Link>
           </div>
@@ -446,7 +428,7 @@ export default function BeforestImageSearch() {
             <button
               type="submit"
               disabled={loading || !query.trim()}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 px-6 py-3 bg-gradient-to-r from-[var(--beforest-forest-green)] to-[var(--beforest-olive-green)] text-white rounded-full disabled:opacity-50 text-sm font-medium hover:shadow-lg hover:scale-105 transition-all duration-200 disabled:hover:scale-100 disabled:hover:shadow-none flex items-center gap-2"
+              className="gallery-search-button absolute right-3 top-1/2 transform -translate-y-1/2 px-6 py-3 bg-gradient-to-r from-[var(--beforest-forest-green)] to-[var(--beforest-olive-green)] text-white rounded-full disabled:opacity-50 text-sm font-medium hover:shadow-lg hover:scale-105 transition-all duration-200 disabled:hover:scale-100 disabled:hover:shadow-none flex items-center gap-2"
             >
               {loading ? (
                 <>
@@ -456,7 +438,7 @@ export default function BeforestImageSearch() {
               ) : (
                 <>
                   <Search className="w-4 h-4" />
-                  <span>{searchMode === 'smart' ? 'Smart Search' : 'File Search'}</span>
+                  <span>Search</span>
                 </>
               )}
             </button>
@@ -465,41 +447,6 @@ export default function BeforestImageSearch() {
 
         {/* Controls */}
         <div className="gallery-toggles">
-          {/* Search Mode */}
-          <div className="gallery-toggle-group">
-            <button
-              type="button"
-              onClick={() => {
-                setSearchMode('smart');
-                // Clear results only, don't auto-search
-                setResults([]);
-                setCursor(undefined);
-                setPage(1);
-                setTotalResults(0);
-                setHasMore(false);
-              }}
-              className={`gallery-toggle ${searchMode === 'smart' ? 'active' : ''}`}
-            >
-              <Brain className="w-4 h-4 mr-1" />
-              Smart
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setSearchMode('files');
-                // Clear results only, don't auto-search
-                setResults([]);
-                setCursor(undefined);
-                setPage(1);
-                setTotalResults(0);
-                setHasMore(false);
-              }}
-              className={`gallery-toggle ${searchMode === 'files' ? 'active' : ''}`}
-            >
-              <Folder className="w-4 h-4 mr-1" />
-              Files
-            </button>
-          </div>
 
           {/* Media Type */}
           <div className="gallery-toggle-group">
@@ -557,7 +504,7 @@ export default function BeforestImageSearch() {
               onClick={() => setShowFilters(!showFilters)}
               className={`gallery-toggle ${showFilters ? 'active' : ''}`}
             >
-              <Filter className="w-4 h-4 mr-1" />
+              <Filter className="w-4 h-4" />
               Filters
             </button>
           </div>
@@ -621,28 +568,12 @@ export default function BeforestImageSearch() {
         )}
       </div>
 
-      {/* Search Mode Indicator */}
-      {query && (
-        <div className="text-center py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
-          <div className="flex items-center justify-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${searchMode === 'smart' ? 'bg-blue-500' : 'bg-green-500'}`}></div>
-            <span className="text-sm font-medium text-gray-700">
-              Ready to search with <span className={`font-semibold ${searchMode === 'smart' ? 'text-blue-600' : 'text-green-600'}`}>{searchMode === 'smart' ? 'Smart Search' : 'File Search'}</span>
-              {mediaType !== 'all' && <span className="text-gray-500"> for {mediaType}</span>}
-              {(dateFilter.start || dateFilter.end) && <span className="text-gray-500"> with date filters</span>}
-            </span>
-          </div>
-        </div>
-      )}
 
       {/* Results Count */}
       {totalResults > 0 && (
         <div className="gallery-results-count">
           {totalResults.toLocaleString()} {totalResults === 1 ? 'item' : 'items'} found
           {query && ` for "${query}"`}
-          <span className="ml-2 text-xs text-gray-500">
-            (using {searchMode === 'smart' ? 'Smart Search' : 'File Search'})
-          </span>
         </div>
       )}
 
@@ -693,7 +624,7 @@ export default function BeforestImageSearch() {
                      result.metadata?.modified_time ? formatDate(result.metadata.modified_time) :
                      result.metadata?.created_time ? formatDate(result.metadata.created_time) :
                      'No date available'}
-                    {searchMode === 'smart' && result.similarity_percentage && (
+                    {result.similarity_percentage && (
                       <span style={{marginLeft: '8px', color: '#ffc083'}}> • {result.similarity_percentage}%</span>
                     )}
                   </div>
@@ -701,8 +632,8 @@ export default function BeforestImageSearch() {
 
                 {/* Top Badges */}
                 <div className="gallery-badges">
-                  {/* Smart Search Relevance Badge - Only show for smart search */}
-                  {searchMode === 'smart' && result.similarity_percentage && (
+                  {/* Relevance Badge */}
+                  {result.similarity_percentage && (
                     <div className="gallery-relevance-badge">
                       {result.similarity_percentage}%
                     </div>

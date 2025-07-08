@@ -292,6 +292,14 @@
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 
+/* Mobile - Compact Search Controls */
+@media (max-width: 640px) {
+  .gallery-search-controls {
+    padding: 12px 16px;
+    position: relative; /* Remove sticky on mobile */
+  }
+}
+
 .gallery-search-bar {
   max-width: 900px;
   margin: 0 auto;
@@ -311,6 +319,15 @@
   color: #1f2937;
 }
 
+/* Mobile - Compact Search Input */
+@media (max-width: 640px) {
+  .gallery-search-input {
+    padding: 12px 120px 12px 48px;
+    font-size: 14px;
+    border-radius: 20px;
+  }
+}
+
 .gallery-search-input:focus {
   outline: none;
   border-color: var(--beforest-forest-green);
@@ -328,9 +345,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 32px;
+  gap: 24px;
   margin-top: 24px;
   flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .gallery-toggles {
+    gap: 12px;
+    margin-top: 12px;
+  }
 }
 
 .gallery-toggle-group {
@@ -355,6 +379,25 @@
   color: #6b7280;
   position: relative;
   overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  gap: 6px;
+}
+
+/* Mobile - Compact Toggle Buttons */
+@media (max-width: 640px) {
+  .gallery-toggle {
+    padding: 8px 12px;
+    font-size: 13px;
+    gap: 4px;
+  }
+  
+  .gallery-toggle svg {
+    width: 14px;
+    height: 14px;
+  }
 }
 
 .gallery-toggle.active {
@@ -443,6 +486,25 @@
   cursor: not-allowed;
   transform: none;
   box-shadow: 0 4px 12px rgba(52, 71, 54, 0.1);
+}
+
+/* Search Button - Mobile Styles */
+@media (max-width: 640px) {
+  .gallery-search-button {
+    padding: 8px 12px !important;
+    font-size: 12px !important;
+    gap: 4px !important;
+  }
+  
+  .gallery-search-button span {
+    display: none; /* Hide text on mobile, show only icon */
+  }
+  
+  .gallery-search-button svg {
+    width: 16px !important;
+    height: 16px !important;
+    margin: 0 !important;
+  }
 }
 
 /* Empty State */

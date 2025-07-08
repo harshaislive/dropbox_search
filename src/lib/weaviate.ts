@@ -187,16 +187,39 @@ function calculateTextRelevance(fileData: any, queryText: string): number {
 function calculateTextSimilarity(query: string, text: string): number {
   if (!text) return 0;
   
-  const queryWords = query.toLowerCase().split(/\s+/);
-  const textWords = text.toLowerCase().split(/\s+/);
+  const queryLower = query.toLowerCase();
+  const textLower = text.toLowerCase();
+  
+  // Exact match boost
+  if (textLower === queryLower) {
+    return 1.5;
+  }
+  
+  // Contains full query boost
+  if (textLower.includes(queryLower)) {
+    return 1.2;
+  }
+  
+  const queryWords = queryLower.split(/\s+/);
+  const textWords = textLower.split(/\s+/);
   
   let matches = 0;
+  let exactWordMatches = 0;
+  
   for (const queryWord of queryWords) {
-    if (textWords.some(textWord => 
+    if (textWords.includes(queryWord)) {
+      exactWordMatches++;
+      matches++;
+    } else if (textWords.some(textWord => 
       textWord.includes(queryWord) || queryWord.includes(textWord)
     )) {
       matches++;
     }
+  }
+  
+  // All words match exactly
+  if (exactWordMatches === queryWords.length && queryWords.length > 1) {
+    return 1.1;
   }
   
   return queryWords.length > 0 ? matches / queryWords.length : 0;
@@ -599,89 +622,140 @@ function deduplicateAndRankResults(
 }
 
 /**
- * Advanced multi-stage retrieval pipeline (from plan.md + right_now.md)
+ * Preprocess query for better CLIP embeddings
+ */
+function preprocessQuery(query: string): string {
+  let processedQuery = query.trim().toLowerCase();
+  
+  // Add descriptive context for better embeddings
+  const contextMap: Record<string, string> = {
+    'dog': 'a photo of a dog',
+    'cat': 'a photo of a cat',
+    'sunset': 'a sunset scene with orange and pink sky',
+    'beach': 'a beach scene with sand and water',
+    'mountain': 'a mountain landscape',
+    'forest': 'a forest with trees',
+    'city': 'a cityscape or urban scene',
+    'food': 'a photo of food or meal',
+    'car': 'a photo of a car or vehicle',
+    'building': 'a building or architecture',
+    'people': 'people or person in a photo',
+    'water': 'water scene like lake, river or ocean',
+    'flower': 'flowers or flowering plants',
+    'sky': 'sky with clouds',
+    'snow': 'snowy scene or winter landscape'
+  };
+  
+  // Check if query is a single word that could benefit from context
+  const words = processedQuery.split(/\s+/);
+  if (words.length === 1 && contextMap[processedQuery]) {
+    processedQuery = contextMap[processedQuery];
+    console.log(`🔍 Enhanced query: "${query}" → "${processedQuery}"`);
+  }
+  
+  return processedQuery;
+}
+
+/**
+ * Advanced vector search with re-ranking for better results
  */
 export async function advancedSearchVectors(params: SearchParams): Promise<SearchResult[]> {
   const startTime = Date.now();
-  const { query, className = 'DropboxFile', limit = CONFIG.performance.default_limit, offset = 0, certainty = 0.7 } = params;
+  const { query, className = 'DropboxFile', limit = CONFIG.performance.default_limit, offset = 0 } = params;
   const client = getWeaviateClient();
 
   try {
     if (!query?.trim()) return [];
     
-    console.log(`🎯 Starting advanced multi-stage retrieval for: "${query}"`);
+    // Preprocess query for better embeddings
+    const processedQuery = preprocessQuery(query);
     
-    // Stage 1: Query Expansion and Multi-Vector Search
-    const queryVariations = expandQuery(query);
-    console.log(`📝 Query expanded to ${queryVariations.length} variations`);
+    console.log(`🎯 Starting vector search with re-ranking for: "${query}"`);
     
-    let allResults: Array<{source: string, result: SearchResult}> = [];
+    // Get 200 results for re-ranking
+    const vectorResults = await performVectorSearch(
+      client, 
+      processedQuery,  // Use processed query
+      className, 
+      CONFIG.vector_search.initial_retrieval_limit, // Get 200 results
+      0.7, // certainty not used with distance threshold
+      offset
+    );
     
-    // Search with multiple query variations
-    for (const variation of queryVariations.slice(0, 3)) { // Limit to top 3 variations
-      try {
-        const vectorResults = await performVectorSearch(
-          client, 
-          variation, 
-          className, 
-          Math.ceil(limit * CONFIG.vector_search.initial_limit_multiplier / 3), 
-          certainty, 
-          offset
-        );
-        
-        allResults.push(...vectorResults.map(result => ({
-          source: 'vector',
-          result: { ...result, source: 'vector' as const }
-        })));
-      } catch (error) {
-        console.log(`⚠️ Vector search failed for variation "${variation}"`);
+    console.log(`📊 Vector search retrieved ${vectorResults.length} candidates`);
+    
+    // Add detailed logging for score analysis
+    if (vectorResults.length > 0) {
+      const scores = vectorResults.map(r => r.similarity || 0);
+      const minScore = Math.min(...scores);
+      const maxScore = Math.max(...scores);
+      const avgScore = scores.reduce((sum, s) => sum + s, 0) / scores.length;
+      
+      console.log(`📈 Score distribution: min=${minScore.toFixed(3)}, max=${maxScore.toFixed(3)}, avg=${avgScore.toFixed(3)}`);
+      console.log(`🔍 Top 5 scores: ${scores.slice(0, 5).map(s => s.toFixed(3)).join(', ')}`);
+    }
+    
+    // Re-ranking with multiple factors
+    const rerankedResults = vectorResults.map(result => {
+      const baseScore = result.similarity || 0;
+      let rerankedScore = baseScore;
+      
+      // Caption quality boost - longer, more descriptive captions often mean better embeddings
+      const caption = result.caption || '';
+      if (caption.length > 50) {
+        rerankedScore *= 1.15; // 15% boost for detailed captions
+      } else if (caption.length > 20) {
+        rerankedScore *= 1.05; // 5% boost for decent captions
       }
-    }
+      
+      // File size boost - larger files often better quality
+      const fileSize = result.file_size || 0;
+      if (fileSize > 2000000) { // >2MB
+        rerankedScore *= 1.1;
+      } else if (fileSize < 100000) { // <100KB, might be low quality
+        rerankedScore *= 0.95;
+      }
+      
+      // Tag boost - files with more tags often better organized/quality
+      const tagCount = result.tags?.length || 0;
+      if (tagCount > 3) {
+        rerankedScore *= 1.05;
+      }
+      
+      return {
+        ...result,
+        reranked_score: rerankedScore,
+        original_score: baseScore
+      };
+    });
     
-    // Stage 2: Text search for original query
-    try {
-      const textResults = await performTextSearch(client, query, className, limit, offset);
-      allResults.push(...textResults.map(result => ({
-        source: 'text',
-        result: { ...result, source: 'text' as const }
-      })));
-    } catch (error) {
-      console.log('❌ Text search failed:', error);
-    }
-    
-    console.log(`📊 Stage 1-2: Collected ${allResults.length} raw results`);
-    
-    // Stage 3: Deduplication (current system logic)
-    const uniqueResults = deduplicateAndRankResults(allResults);
-    console.log(`🔄 Stage 3: Deduplicated to ${uniqueResults.length} unique results`);
-    
-    // Stage 4: Semantic Re-ranking with Composite Scoring
-    const rerankedResults = semanticRerank(uniqueResults, query, limit * 2);
-    console.log(`🎯 Stage 4: Re-ranked with composite scoring`);
-    
-    // Stage 5: Apply Boosting Strategies
-    let boostedResults = applyPathBoosting(rerankedResults, query);
-    boostedResults = applyTemporalRelevance(boostedResults);
-    console.log(`🚀 Stage 5: Applied boosting strategies`);
-    
-    // Stage 6: Diversification
-    const diversifiedResults = diversifyResults(boostedResults, CONFIG.diversity.diversity_factor);
-    console.log(`🌈 Stage 6: Diversified to ${diversifiedResults.length} results`);
-    
-    // Stage 7: Final ranking and limiting
-    const finalResults = diversifiedResults
-      .sort((a, b) => (b.composite_score || b.similarity) - (a.composite_score || a.similarity))
-      .slice(0, limit);
+    // Filter and sort by re-ranked score
+    const finalResults = rerankedResults
+      .filter(result => {
+        const score = result.original_score || 0;
+        return score >= CONFIG.vector_search.min_similarity_score;
+      })
+      .sort((a, b) => (b.reranked_score || 0) - (a.reranked_score || 0))
+      .slice(0, limit)
+      .map(result => ({
+        ...result,
+        similarity: result.reranked_score // Use re-ranked score as final similarity
+      }));
     
     const processingTime = Date.now() - startTime;
-    console.log(`✨ Advanced retrieval completed in ${processingTime}ms, returning ${finalResults.length} optimized results`);
+    console.log(`✨ Vector search with re-ranking completed in ${processingTime}ms`);
+    console.log(`🎯 Returning ${finalResults.length} results (filtered from ${vectorResults.length} candidates)`);
+    
+    if (finalResults.length > 0) {
+      const finalScores = finalResults.map(r => r.similarity || 0);
+      console.log(`🏆 Final top 3 scores: ${finalScores.slice(0, 3).map(s => s.toFixed(3)).join(', ')}`);
+    }
     
     return finalResults;
 
   } catch (error) {
-    console.error('[WEAVIATE] Error in advanced search:', error);
-    // Fallback to standard search
-    return searchVectors(params);
+    console.error('[WEAVIATE] Error in vector search:', error);
+    return [];
   }
 }
 
@@ -689,12 +763,12 @@ export async function advancedSearchVectors(params: SearchParams): Promise<Searc
  * Current system dual search strategy (from right_now.md)
  */
 export async function searchVectors(params: SearchParams): Promise<SearchResult[]> {
-  // Use advanced search if requested
+  // Always use vector-only search for smart search
   if (params.useAdvanced) {
     return advancedSearchVectors(params);
   }
   
-  // Original dual search implementation matching right_now.md
+  // Fallback: use vector search only
   const startTime = Date.now();
   const { query, className = 'DropboxFile', limit = CONFIG.performance.default_limit, offset = 0, certainty = 0.7 } = params;
   const client = getWeaviateClient();
