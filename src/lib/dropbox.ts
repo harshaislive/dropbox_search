@@ -539,7 +539,8 @@ export async function searchFilesV2(options: DropboxSearchOptions): Promise<Drop
     if (result.matches.length > 0) {
       console.log('🔍 First 3 file paths in response:');
       result.matches.slice(0, 3).forEach((match, idx) => {
-        console.log(`  ${idx + 1}. ${match.metadata?.path_display || 'NO PATH'}`);
+        const metadata = (match.metadata as any)?.metadata || match.metadata || {};
+        console.log(`  ${idx + 1}. ${metadata.path_display || 'NO PATH'}`);
       });
       console.log('🔍 First match structure:', JSON.stringify(result.matches[0], null, 2));
     }
