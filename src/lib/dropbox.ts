@@ -611,7 +611,7 @@ export async function searchVideosV2(
  */
 export async function searchMediaWithThumbnails(
   query: string,
-  options: { max_results?: number; start?: string; maxConcurrency?: number; useOptimized?: boolean } = {}
+  options: { max_results?: number; start?: string; maxConcurrency?: number; useOptimized?: boolean; metadata_only?: boolean } = {}
 ): Promise<{
   files: Array<DropboxFileInfo & { thumbnailUrl?: string; downloadUrl?: string; highlights?: string[] }>;
   cursor?: string;
@@ -623,17 +623,22 @@ export async function searchMediaWithThumbnails(
     start: options.start
   });
 
-  // Extract paths for thumbnail/download URL generation
-  const paths = searchResult.matches.map(match => match.metadata.path_display);
+  // OPTIMIZATION: Skip URL generation for metadata-only requests
+  let enhancedMap = new Map<string, { thumbnailUrl?: string; downloadUrl?: string }>();
   
-  // Get enhanced URLs using smart batching (optimized for 50 images)
-  const enhancedMap = await enhanceSearchResultsSmart(paths, {
-    maxConcurrency: options.maxConcurrency || 25,
-    useOptimized: options.useOptimized ?? (paths.length >= 20),
-    targetResponseTime: 3000
-  });
+  if (!options.metadata_only) {
+    // Extract paths for thumbnail/download URL generation
+    const paths = searchResult.matches.map(match => match.metadata.path_display);
+    
+    // Get enhanced URLs using smart batching (optimized for 50 images)
+    enhancedMap = await enhanceSearchResultsSmart(paths, {
+      maxConcurrency: options.maxConcurrency || 25,
+      useOptimized: options.useOptimized ?? (paths.length >= 20),
+      targetResponseTime: 3000
+    });
+  }
   
-  // Combine search results with enhanced URLs
+  // Combine search results with enhanced URLs (or empty if metadata_only)
   const files = searchResult.matches.map(match => {
     const enhanced = enhancedMap.get(match.metadata.path_display) || {};
     const highlights = match.highlight_spans?.map(span => span.highlight_str) || [];
@@ -644,8 +649,8 @@ export async function searchMediaWithThumbnails(
       path: match.metadata.path_display,
       size: match.metadata.size,
       modified: match.metadata.client_modified,
-      thumbnailUrl: enhanced.thumbnailUrl,
-      downloadUrl: enhanced.downloadUrl,
+      thumbnailUrl: options.metadata_only ? undefined : enhanced.thumbnailUrl,
+      downloadUrl: options.metadata_only ? undefined : enhanced.downloadUrl,
       highlights
     };
   });

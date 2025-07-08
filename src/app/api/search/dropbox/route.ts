@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchMediaWithThumbnails, searchVideosV2 } from '@/lib/dropbox';
+import { getCachedData, setCachedData, CacheKeys, CacheTTL } from '@/lib/redis';
 
 interface DropboxSearchRequest {
   query: string;
   max_results?: number;
   cursor?: string;
   search_type?: 'media' | 'video';
+  date_filter?: {
+    start?: string;
+    end?: string;
+  };
+  metadata_only?: boolean; // Skip URL generation for faster background loading
 }
 
 interface DropboxSearchResponse {
@@ -43,10 +49,23 @@ export async function POST(request: NextRequest): Promise<NextResponse<DropboxSe
       query = '', 
       max_results = 50, 
       cursor,
-      search_type = 'media'
+      search_type = 'media',
+      date_filter,
+      metadata_only = false
     } = body;
 
-    console.log(`[DROPBOX] Search API: "${query}" (type: ${search_type}, max: ${max_results})`);
+    console.log(`[DROPBOX] Search API: "${query}" (type: ${search_type}, max: ${max_results}, metadata_only: ${metadata_only})`);
+    
+    // Check Redis cache first (only for non-metadata requests)
+    if (!metadata_only && !cursor) {
+      const cacheKey = CacheKeys.searchResults(query, search_type, 1);
+      const cachedResults = await getCachedData<DropboxSearchResponse>(cacheKey);
+      
+      if (cachedResults) {
+        console.log(`[DROPBOX] Returning cached results for: "${query}"`);
+        return NextResponse.json(cachedResults);
+      }
+    }
 
     if (!query.trim()) {
       return NextResponse.json({
@@ -60,12 +79,19 @@ export async function POST(request: NextRequest): Promise<NextResponse<DropboxSe
       }, { status: 400 });
     }
 
+    // When date filtering is active, fetch more results to compensate for filtering
+    const searchLimit = (date_filter && (date_filter.start || date_filter.end)) 
+      ? Math.min(max_results * 3, 150) // Fetch 3x more results when filtering, max 150
+      : max_results;
+
+    console.log(`[DROPBOX] ${date_filter && (date_filter.start || date_filter.end) ? 'Date filtering active' : 'No date filter'}: requesting ${searchLimit} results`);
+
     // Perform Dropbox search
     let searchResult;
     
     if (search_type === 'video') {
       // Search videos only
-      const videoResult = await searchVideosV2(query, { max_results, start: cursor });
+      const videoResult = await searchVideosV2(query, { max_results: searchLimit, start: cursor });
       searchResult = {
         files: videoResult.matches.map(match => ({
           id: match.metadata.path_lower,
@@ -80,11 +106,15 @@ export async function POST(request: NextRequest): Promise<NextResponse<DropboxSe
       };
     } else {
       // Search all media (images and videos)
-      searchResult = await searchMediaWithThumbnails(query, { max_results, start: cursor });
+      searchResult = await searchMediaWithThumbnails(query, { 
+        max_results: searchLimit, 
+        start: cursor,
+        metadata_only: metadata_only
+      });
     }
 
     // Transform results for API response
-    const transformedFiles = searchResult.files.map(file => ({
+    let transformedFiles = searchResult.files.map(file => ({
       id: file.id || file.path,
       file_name: file.name,
       file_path: file.path,
@@ -92,22 +122,60 @@ export async function POST(request: NextRequest): Promise<NextResponse<DropboxSe
       file_size: file.size,
       modified_date: file.modified,
       file_extension: file.name.split('.').pop()?.toLowerCase() || '',
-      thumbnail_url: (file as any).thumbnailUrl,
-      download_url: (file as any).downloadUrl,
-      public_url: (file as any).downloadUrl,
+      thumbnail_url: metadata_only ? undefined : (file as any).thumbnailUrl,
+      download_url: metadata_only ? undefined : (file as any).downloadUrl,
+      public_url: metadata_only ? undefined : (file as any).downloadUrl,
       similarity_percentage: 85, // Default similarity for Dropbox search
       source: 'dropbox' as const,
       highlights: (file as any).highlights || [],
-      enhanced: !!((file as any).thumbnailUrl || (file as any).downloadUrl)
+      enhanced: metadata_only ? false : !!((file as any).thumbnailUrl || (file as any).downloadUrl)
     }));
 
+    // Apply date filtering if provided
+    let dateFilteredFiles = transformedFiles;
+    if (date_filter && (date_filter.start || date_filter.end)) {
+      const originalCount = transformedFiles.length;
+      
+      dateFilteredFiles = transformedFiles.filter(file => {
+        if (!file.modified_date) return true; // Keep files without dates
+        
+        const fileDate = new Date(file.modified_date);
+        const startDate = date_filter.start ? new Date(date_filter.start) : null;
+        const endDate = date_filter.end ? new Date(date_filter.end) : null;
+        
+        // Apply start date filter
+        if (startDate && fileDate < startDate) {
+          return false;
+        }
+        
+        // Apply end date filter (include the entire end date)
+        if (endDate) {
+          const endOfDay = new Date(endDate);
+          endOfDay.setHours(23, 59, 59, 999); // End of the selected day
+          if (fileDate > endOfDay) {
+            return false;
+          }
+        }
+        
+        return true;
+      });
+      
+      console.log(`[DROPBOX] Date filtering: ${originalCount} → ${dateFilteredFiles.length} files (start: ${date_filter.start}, end: ${date_filter.end})`);
+    }
+
+    // Limit to requested page size after filtering
+    const finalFiles = dateFilteredFiles.slice(0, max_results);
+    const actualHasMore = dateFilteredFiles.length > max_results || (dateFilteredFiles.length === max_results && searchResult.has_more);
+    
+    console.log(`[DROPBOX] Final result: ${finalFiles.length} files returned, hasMore: ${actualHasMore}`);
+
     // Sort results to ensure a good mix of images and videos (prevent video-first clustering)
-    if (search_type === 'media' && transformedFiles.length > 1) {
+    if (search_type === 'media' && finalFiles.length > 1) {
       const videoExtensions = ['mp4', 'avi', 'mov', 'mkv', 'wmv', 'flv', 'webm', 'm4v', 'mpg', 'mpeg', '3gp', 'ogv'];
       
-      // Separate images and videos
-      const images = transformedFiles.filter(file => !videoExtensions.includes(file.file_extension));
-      const videos = transformedFiles.filter(file => videoExtensions.includes(file.file_extension));
+      // Separate images and videos from final filtered results
+      const images = finalFiles.filter(file => !videoExtensions.includes(file.file_extension));
+      const videos = finalFiles.filter(file => videoExtensions.includes(file.file_extension));
       
       // Create a mixed array with alternating content types for better visual balance
       const mixedResults = [];
@@ -119,24 +187,30 @@ export async function POST(request: NextRequest): Promise<NextResponse<DropboxSe
         if (i < videos.length) mixedResults.push(videos[i]);
       }
       
-      // Replace the original array with the mixed one
-      transformedFiles.splice(0, transformedFiles.length, ...mixedResults);
+      // Replace the final files array with the mixed one
+      finalFiles.splice(0, finalFiles.length, ...mixedResults);
       
       console.log(`[DROPBOX] Sorted results: ${images.length} images, ${videos.length} videos, mixed for better balance`);
     }
 
     const response: DropboxSearchResponse = {
-      files: transformedFiles,
-      cursor: searchResult.cursor,
-      has_more: searchResult.has_more,
-      total_found: transformedFiles.length,
+      files: finalFiles, // Use filtered and limited files
+      cursor: actualHasMore ? searchResult.cursor : undefined, // Only provide cursor if there are more results
+      has_more: actualHasMore,
+      total_found: dateFilteredFiles.length, // Total after date filtering
       processing_time: Date.now() - startTime,
-      search_strategy: `dropbox_${search_type}`,
+      search_strategy: date_filter && (date_filter.start || date_filter.end) ? `dropbox_${search_type}_date_filtered` : `dropbox_${search_type}`,
       query
     };
 
     console.log(`[DROPBOX] Search API completed in ${response.processing_time}ms`);
-    console.log(`[DROPBOX] Results: ${transformedFiles.length} files`);
+    console.log(`[DROPBOX] Results: ${finalFiles.length}/${dateFilteredFiles.length} files (${date_filter && (date_filter.start || date_filter.end) ? 'with date filter' : 'no filter'})`);
+
+    // Cache the response (only for non-metadata, first page requests)
+    if (!metadata_only && !cursor && finalFiles.length > 0) {
+      const cacheKey = CacheKeys.searchResults(query, search_type, 1);
+      await setCachedData(cacheKey, response, CacheTTL.searchResults);
+    }
 
     return NextResponse.json(response);
 

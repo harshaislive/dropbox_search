@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Search, Download, Loader2, Calendar, X, ChevronLeft, ChevronRight, Copy, Check, Play, Pause, Volume2, VolumeX, Filter, ImageIcon, Folder } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Search, Download, Loader2, Calendar, X, ChevronLeft, ChevronRight, Copy, Check, Play, Pause, Volume2, VolumeX, Filter, ImageIcon, Folder, HelpCircle, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import Link from 'next/link';
 import VideoThumbnail from '../components/VideoThumbnail';
 import ResponsiveThumbnail from '../components/ResponsiveThumbnail';
@@ -65,7 +65,73 @@ export default function BeforestImageSearch() {
   const [cursor, setCursor] = useState<string | undefined>(undefined);
   const [dateFilter, setDateFilter] = useState<DateFilter>({});
   const [showFilters, setShowFilters] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [searchId, setSearchId] = useState(0); // Track search iterations
+  
+  // Sorting and all results state
+  const [allResults, setAllResults] = useState<SearchResult[]>([]); // All fetched results
+  const [isLoadingAllResults, setIsLoadingAllResults] = useState(false);
+  const [allResultsLoaded, setAllResultsLoaded] = useState(false);
+  const [sortBy, setSortBy] = useState<'date' | 'name' | 'size' | null>(null);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  
+  // Lazy loading for thumbnails
+  const [loadingThumbnails, setLoadingThumbnails] = useState<Set<string>>(new Set());
+  const [thumbnailCache, setThumbnailCache] = useState<Map<string, { thumbnail_url?: string; download_url?: string }>>(new Map());
+  
   const resultsPerPage = 50;
+
+  // Function to load thumbnails in batch
+  const loadThumbnailsBatch = useCallback(async (paths: string[]) => {
+    // Filter out paths that are already loading or cached
+    const pathsToLoad = paths.filter(path => 
+      !loadingThumbnails.has(path) && !thumbnailCache.has(path)
+    );
+
+    if (pathsToLoad.length === 0) return;
+
+    // Mark all paths as loading
+    setLoadingThumbnails(prev => {
+      const newSet = new Set(prev);
+      pathsToLoad.forEach(path => newSet.add(path));
+      return newSet;
+    });
+
+    try {
+      const response = await fetch('/api/thumbnails', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paths: pathsToLoad }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const { thumbnails } = data;
+
+        // Update thumbnail cache
+        setThumbnailCache(prev => {
+          const newCache = new Map(prev);
+          Object.entries(thumbnails).forEach(([path, urls]: [string, any]) => {
+            if (urls.thumbnail_url || urls.download_url) {
+              newCache.set(path, {
+                thumbnail_url: urls.thumbnail_url,
+                download_url: urls.download_url
+              });
+            }
+          });
+          return newCache;
+        });
+      }
+    } catch (error) {
+      console.error('Error loading thumbnails:', error);
+    } finally {
+      setLoadingThumbnails(prev => {
+        const newSet = new Set(prev);
+        pathsToLoad.forEach(path => newSet.delete(path));
+        return newSet;
+      });
+    }
+  }, [loadingThumbnails, thumbnailCache]);
 
   // Preview modal states
   const [previewResult, setPreviewResult] = useState<SearchResult | null>(null);
@@ -98,8 +164,10 @@ export default function BeforestImageSearch() {
     setIsPlaying(false);
 
     try {
+      // For new searches (page 1, not appending), always clear cursor and ensure fresh start
       if (pageNum === 1 && !append) {
         setCursor(undefined);
+        console.log(`[SEARCH #${searchId}] New search - cursor cleared, fresh start`);
       }
 
       let apiEndpoint: string;
@@ -110,14 +178,15 @@ export default function BeforestImageSearch() {
       requestBody = {
         query: searchQuery,
         max_results: resultsPerPage,
-        cursor: useCursor || cursor,
-        search_type: mediaType === 'videos' ? 'video' : 'media'
+        cursor: (pageNum === 1 && !append) ? undefined : (useCursor || cursor), // Never send cursor for new searches
+        search_type: mediaType === 'videos' ? 'video' : 'media',
+        date_filter: dateFilter // Add date filter
       };
       
-      console.log(`[SEARCH] Using Dropbox file search API:`, apiEndpoint);
+      console.log(`[SEARCH #${searchId}] Using Dropbox file search API:`, apiEndpoint);
       
-      console.log(`[SEARCH] Using endpoint: ${apiEndpoint}`, requestBody);
-      console.log(`[SEARCH] Cursor values - useCursor: ${useCursor}, current cursor state: ${cursor}`);
+      console.log(`[SEARCH #${searchId}] Using endpoint: ${apiEndpoint}`, requestBody);
+      console.log(`[SEARCH #${searchId}] Cursor values - useCursor: ${useCursor}, current cursor state: ${cursor}`);
 
       const response = await fetch(apiEndpoint, {
         method: 'POST',
@@ -156,6 +225,86 @@ export default function BeforestImageSearch() {
     }
   };
 
+  // Function to fetch all remaining pages for sorting (OPTIMIZED)
+  const fetchAllResults = async (searchQuery: string, initialResults: SearchResult[], initialCursor?: string) => {
+    console.log(`[FETCH_ALL] Starting OPTIMIZED fetch for: "${searchQuery}"`);
+    setIsLoadingAllResults(true);
+    
+    let allFetchedResults = [...initialResults];
+    let currentCursor = initialCursor;
+    
+    try {
+      // OPTIMIZATION 1: Parallel batch fetching (fetch 3 pages at once)
+      const BATCH_SIZE = 3;
+      const pendingRequests: Promise<any>[] = [];
+      
+      while (currentCursor) {
+        // Create batch of parallel requests
+        const batchCursors = [currentCursor];
+        let tempCursor = currentCursor;
+        
+        // Build batch of cursors (we'll get more cursors as responses come in)
+        for (let i = 0; i < BATCH_SIZE && tempCursor; i++) {
+          const response = await fetch('/api/search/dropbox', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query: searchQuery,
+              max_results: resultsPerPage,
+              cursor: tempCursor,
+              search_type: mediaType === 'videos' ? 'video' : 'media',
+              date_filter: dateFilter,
+              metadata_only: true // OPTIMIZATION 2: Skip URL generation for background fetching
+            }),
+          });
+
+          if (!response.ok) break;
+          
+          const data: any = await response.json();
+          
+          // Process results quickly (no URL generation)
+          let newResults = data.files.map((file: any) => ({
+            ...file,
+            similarity_percentage: file.similarity_percentage || 85,
+            source: 'dropbox' as const,
+            enhanced: false, // Mark as not enhanced for lazy loading
+            thumbnail_url: undefined, // Will be loaded on demand
+            download_url: undefined
+          }));
+
+          // Apply media type filter
+          if (mediaType !== 'all') {
+            newResults = newResults.filter((result: SearchResult) => {
+              const fileType = getFileType(result.file_name || '');
+              return mediaType === 'videos' ? fileType === 'video' : fileType === 'image';
+            });
+          }
+          
+          allFetchedResults = [...allFetchedResults, ...newResults];
+          tempCursor = data.has_more ? data.cursor : undefined;
+          
+          console.log(`[FETCH_ALL] Batch item ${i + 1}: +${newResults.length} results, total: ${allFetchedResults.length}`);
+          
+          // OPTIMIZATION 3: Progressive updates - update UI every batch
+          if (i % 2 === 0) {
+            setAllResults([...allFetchedResults]);
+          }
+        }
+        
+        currentCursor = tempCursor;
+      }
+      
+      console.log(`[FETCH_ALL] OPTIMIZED fetch completed! Total results: ${allFetchedResults.length}`);
+      setAllResults(allFetchedResults);
+      setAllResultsLoaded(true);
+      
+    } catch (error) {
+      console.error('[FETCH_ALL] Error fetching all results:', error);
+    } finally {
+      setIsLoadingAllResults(false);
+    }
+  };
+
   const handleSearchResponse = (data: SearchResponse, append: boolean, pageNum: number) => {
     // Filter by media type if needed
     let filteredResults = data.results;
@@ -170,11 +319,25 @@ export default function BeforestImageSearch() {
     setHasMore(data.hasMore);
     setTotalResults(data.totalFound);
     setPage(pageNum);
+    
+    // Always set cursor from response, or clear it if not provided
     if (data.cursor) {
       console.log(`[RESPONSE] Setting new cursor: ${data.cursor}`);
       setCursor(data.cursor);
     } else {
-      console.log(`[RESPONSE] No cursor in response, keeping current: ${cursor}`);
+      console.log(`[RESPONSE] No cursor in response, clearing cursor`);
+      setCursor(undefined); // Clear cursor instead of keeping old one
+    }
+
+    // For first page of new search, start fetching all results in background
+    if (pageNum === 1 && !append && data.hasMore && data.cursor) {
+      console.log(`[RESPONSE] First page loaded, starting background fetch for all results`);
+      fetchAllResults(query, filteredResults, data.cursor);
+    } else if (pageNum === 1 && !append && !data.hasMore) {
+      // If first page is also the last page, we already have all results
+      console.log(`[RESPONSE] Single page result, marking all results as loaded`);
+      setAllResults(filteredResults);
+      setAllResultsLoaded(true);
     }
   };
 
@@ -182,18 +345,121 @@ export default function BeforestImageSearch() {
     e.preventDefault();
     if (!query.trim()) return;
     
+    // Increment search ID to track this search iteration
+    const newSearchId = searchId + 1;
+    setSearchId(newSearchId);
+    
+    // Clear ALL previous state immediately and aggressively
+    setResults([]);
+    setTotalResults(0);
+    setHasMore(false);
+    setCursor(undefined);
+    setPage(1);
+    setError(null);
+    
+    // Reset sorting state
+    setAllResults([]);
+    setAllResultsLoaded(false);
+    setIsLoadingAllResults(false);
+    setSortBy(null);
+    
+    // Clear thumbnail cache for new search
+    setThumbnailCache(new Map());
+    setLoadingThumbnails(new Set());
+    
     setActiveVideoId(null);
     setIsPlaying(false);
     
-    console.log(`[SEARCH] Starting search with query: "${query}"`);
+    console.log(`[SEARCH #${newSearchId}] Starting fresh search with query: "${query}"`);
     
     searchImages(query, 1, false);
   };
 
+  // Apply sorting to all cached results and re-paginate
+  const applySorting = (sortType: 'date' | 'name' | 'size', order: 'asc' | 'desc') => {
+    if (allResults.length === 0) {
+      console.log('[SORT] Cannot sort - no results available');
+      return;
+    }
+
+    const sortLabel = allResultsLoaded ? 'complete' : 'partial';
+    console.log(`[SORT] Applying ${sortType} ${order} sort to ${allResults.length} ${sortLabel} results`);
+    
+    const sortedResults = [...allResults].sort((a, b) => {
+      let aValue: any, bValue: any;
+      
+      switch (sortType) {
+        case 'date':
+          aValue = new Date(a.modified_date || a.processed_date || 0);
+          bValue = new Date(b.modified_date || b.processed_date || 0);
+          break;
+        case 'name':
+          aValue = (a.file_name || '').toLowerCase();
+          bValue = (b.file_name || '').toLowerCase();
+          break;
+        case 'size':
+          aValue = a.file_size || 0;
+          bValue = b.file_size || 0;
+          break;
+        default:
+          return 0;
+      }
+      
+      if (order === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+
+    // Update all results with sorted version
+    setAllResults(sortedResults);
+    
+    // Reset to first page with sorted results
+    const firstPageResults = sortedResults.slice(0, resultsPerPage);
+    setResults(firstPageResults);
+    setPage(1);
+    setHasMore(sortedResults.length > resultsPerPage || !allResultsLoaded);
+    setCursor(undefined); // Clear cursor since we're using local pagination
+    
+    console.log(`[SORT] Applied ${sortType} ${order}, showing first ${firstPageResults.length} of ${sortedResults.length} ${sortLabel} results`);
+  };
+
+  // Handle sort option change
+  const handleSort = (sortType: 'date' | 'name' | 'size') => {
+    const newOrder = sortBy === sortType && sortOrder === 'desc' ? 'asc' : 'desc';
+    setSortBy(sortType);
+    setSortOrder(newOrder);
+    
+    // OPTIMIZATION: Early sorting - sort with current results while loading more
+    if (allResults.length > 0 && !allResultsLoaded) {
+      console.log(`[EARLY_SORT] Sorting ${allResults.length} partial results while loading more...`);
+      applySorting(sortType, newOrder);
+    } else {
+      applySorting(sortType, newOrder);
+    }
+  };
+
   const loadMore = () => {
     if (!loading && hasMore) {
-      console.log(`[LOAD_MORE] Current cursor: ${cursor}, page: ${page}`);
-      searchImages(query, page + 1, true, cursor);
+      // If we have all results loaded and are sorting, use local pagination
+      if (allResultsLoaded && sortBy) {
+        const nextPage = page + 1;
+        const startIndex = (nextPage - 1) * resultsPerPage;
+        const endIndex = startIndex + resultsPerPage;
+        const nextPageResults = allResults.slice(startIndex, endIndex);
+        
+        if (nextPageResults.length > 0) {
+          setResults([...results, ...nextPageResults]);
+          setPage(nextPage);
+          setHasMore(endIndex < allResults.length);
+          console.log(`[LOAD_MORE] Local pagination: loaded page ${nextPage}, ${nextPageResults.length} results`);
+        }
+      } else {
+        // Use normal API pagination
+        console.log(`[LOAD_MORE] API pagination: Current cursor: ${cursor}, page: ${page}`);
+        searchImages(query, page + 1, true, cursor);
+      }
     }
   };
 
@@ -363,6 +629,18 @@ export default function BeforestImageSearch() {
     return `${Math.floor(diffDays / 365)}y ago`;
   };
 
+  // Load thumbnails for visible results that don't have them
+  useEffect(() => {
+    const pathsNeedingThumbnails = results
+      .filter(result => !result.thumbnail_url && !result.enhanced)
+      .map(result => result.dropbox_path);
+    
+    if (pathsNeedingThumbnails.length > 0) {
+      console.log(`[LAZY_LOAD] Loading ${pathsNeedingThumbnails.length} thumbnails`);
+      loadThumbnailsBatch(pathsNeedingThumbnails);
+    }
+  }, [results, loadThumbnailsBatch]);
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -508,6 +786,58 @@ export default function BeforestImageSearch() {
               Filters
             </button>
           </div>
+
+          {/* Sort Controls - Show when we have partial results or all results */}
+          {allResults.length > 0 && (
+            <div className="gallery-toggle-group">
+              <button
+                type="button"
+                onClick={() => handleSort('date')}
+                className={`gallery-toggle ${sortBy === 'date' ? 'active' : ''}`}
+                title={`Sort by date ${sortBy === 'date' && sortOrder === 'desc' ? '(newest first)' : '(oldest first)'}`}
+              >
+                <Calendar className="w-4 h-4" />
+                Date
+                {sortBy === 'date' && (
+                  sortOrder === 'desc' ? <ArrowDown className="w-3 h-3 ml-1" /> : <ArrowUp className="w-3 h-3 ml-1" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSort('name')}
+                className={`gallery-toggle ${sortBy === 'name' ? 'active' : ''}`}
+                title={`Sort by name ${sortBy === 'name' && sortOrder === 'desc' ? '(Z-A)' : '(A-Z)'}`}
+              >
+                <Folder className="w-4 h-4" />
+                Name
+                {sortBy === 'name' && (
+                  sortOrder === 'desc' ? <ArrowDown className="w-3 h-3 ml-1" /> : <ArrowUp className="w-3 h-3 ml-1" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSort('size')}
+                className={`gallery-toggle ${sortBy === 'size' ? 'active' : ''}`}
+                title={`Sort by size ${sortBy === 'size' && sortOrder === 'desc' ? '(largest first)' : '(smallest first)'}`}
+              >
+                <ArrowUpDown className="w-4 h-4" />
+                Size
+                {sortBy === 'size' && (
+                  sortOrder === 'desc' ? <ArrowDown className="w-3 h-3 ml-1" /> : <ArrowUp className="w-3 h-3 ml-1" />
+                )}
+              </button>
+            </div>
+          )}
+
+          {/* Loading indicator for fetching all results */}
+          {isLoadingAllResults && (
+            <div className="gallery-toggle-group">
+              <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading all results for sorting...
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Date Filters */}
@@ -590,7 +920,7 @@ export default function BeforestImageSearch() {
           <div className="gallery-grid">
             {results.map((result, index) => (
               <div
-                key={result.id}
+                key={`${result.dropbox_path || result.id}-${index}`}
                 className="gallery-item"
                 onClick={() => openPreview(result, index)}
                 data-video-id={result.id}
@@ -599,13 +929,13 @@ export default function BeforestImageSearch() {
                 <div className="gallery-media">
                   {isVideoFile(result.file_name || '') ? (
                     <VideoThumbnail
-                      thumbnailUrl={result.thumbnail_url}
+                      thumbnailUrl={thumbnailCache.get(result.dropbox_path)?.thumbnail_url || result.thumbnail_url}
                       fileName={result.file_name || 'Video'}
                       className="w-full h-full"
                     />
                   ) : (
                     <ResponsiveThumbnail
-                      thumbnailUrl={result.thumbnail_url}
+                      thumbnailUrl={thumbnailCache.get(result.dropbox_path)?.thumbnail_url || result.thumbnail_url}
                       fileName={result.file_name || 'Image'}
                       className="w-full h-full"
                       quality="high"
@@ -919,6 +1249,62 @@ export default function BeforestImageSearch() {
                 <ChevronRight className="w-5 h-5" />
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Help Button - Bottom Left */}
+      <button
+        onClick={() => setShowHelp(true)}
+        className="fixed bottom-6 left-6 z-40 bg-[var(--beforest-forest-green)] text-white p-3 rounded-full shadow-lg hover:bg-[var(--beforest-olive-green)] transition-colors duration-200 hover:scale-105"
+        title="How to use"
+      >
+        <HelpCircle className="w-5 h-5" />
+      </button>
+
+      {/* Help Modal */}
+      {showHelp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-[var(--beforest-forest-green)]" />
+                How to Search
+              </h3>
+              <button
+                onClick={() => setShowHelp(false)}
+                className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Instructions */}
+            <div className="space-y-4 text-sm text-gray-700">
+              <div>
+                <p className="font-medium text-gray-900 mb-1">🔍 Search by content:</p>
+                <p className="text-gray-600">Type what you see in images: &quot;dog playing&quot;, &quot;sunset beach&quot;, &quot;birthday party&quot;</p>
+              </div>
+              
+              <div>
+                <p className="font-medium text-gray-900 mb-1">📁 Search by filename:</p>
+                <p className="text-gray-600">Use file names or parts: &quot;vacation&quot;, &quot;IMG_2023&quot;, &quot;wedding photos&quot;</p>
+              </div>
+              
+              <div>
+                <p className="font-medium text-gray-900 mb-1">🎯 Use filters:</p>
+                <p className="text-gray-600">Filter by Photos/Videos, date ranges, or use the Filters button for more options</p>
+              </div>
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={() => setShowHelp(false)}
+              className="w-full mt-6 px-4 py-2 bg-[var(--beforest-forest-green)] text-white rounded-lg hover:bg-[var(--beforest-olive-green)] transition-colors font-medium"
+            >
+              Got it!
+            </button>
           </div>
         </div>
       )}
