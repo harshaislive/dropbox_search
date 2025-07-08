@@ -515,18 +515,32 @@ export async function searchFilesV2(options: DropboxSearchOptions): Promise<Drop
       searchArgs.options.file_extensions = options.file_extensions;
     }
 
-    // Add cursor for pagination
+    let response;
+    
+    // Use different API calls for first page vs continuation
     if (options.start) {
-      searchArgs.start = options.start;
+      console.log(`🔄 [DROPBOX API] Using search/continue_v2 with cursor: ${options.start}`);
+      // Use search/continue_v2 for pagination
+      response = await client.filesSearchContinueV2({
+        cursor: options.start
+      });
+    } else {
+      console.log(`🔄 [DROPBOX API] Using search_v2 for first page`);
+      console.log(`🔄 [DROPBOX API] Full search args:`, JSON.stringify(searchArgs, null, 2));
+      // Use regular search for first page
+      response = await client.filesSearchV2(searchArgs);
     }
-
-    const response = await client.filesSearchV2(searchArgs);
     const result = response.result;
 
     console.log(`📊 Found ${result.matches.length} results, has_more: ${result.has_more}`);
+    console.log(`📊 Returned cursor: ${result.cursor || 'NO CURSOR'}`);
     
-    // Debug: Log the first match structure
+    // Debug: Log file paths to detect duplicates
     if (result.matches.length > 0) {
+      console.log('🔍 First 3 file paths in response:');
+      result.matches.slice(0, 3).forEach((match, idx) => {
+        console.log(`  ${idx + 1}. ${match.metadata?.path_display || 'NO PATH'}`);
+      });
       console.log('🔍 First match structure:', JSON.stringify(result.matches[0], null, 2));
     }
 

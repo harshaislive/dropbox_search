@@ -134,6 +134,7 @@ export default function BeforestImageSearch() {
       }
       
       console.log(`[SEARCH] Using endpoint: ${apiEndpoint}`, requestBody);
+      console.log(`[SEARCH] Cursor values - useCursor: ${useCursor}, current cursor state: ${cursor}`);
 
       const response = await fetch(apiEndpoint, {
         method: 'POST',
@@ -186,7 +187,12 @@ export default function BeforestImageSearch() {
     setHasMore(data.hasMore);
     setTotalResults(data.totalFound);
     setPage(pageNum);
-    if (data.cursor) setCursor(data.cursor);
+    if (data.cursor) {
+      console.log(`[RESPONSE] Setting new cursor: ${data.cursor}`);
+      setCursor(data.cursor);
+    } else {
+      console.log(`[RESPONSE] No cursor in response, keeping current: ${cursor}`);
+    }
   };
 
   const handleSearch = (e: React.FormEvent) => {
@@ -204,6 +210,7 @@ export default function BeforestImageSearch() {
 
   const loadMore = () => {
     if (!loading && hasMore) {
+      console.log(`[LOAD_MORE] Current cursor: ${cursor}, page: ${page}`);
       searchImages(query, page + 1, true, cursor);
     }
   };
