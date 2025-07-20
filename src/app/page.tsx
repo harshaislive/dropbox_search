@@ -159,6 +159,11 @@ export default function BeforestImageSearch() {
     setLoading(true);
     setError(null);
     
+    // For new searches, ensure results are cleared immediately
+    if (pageNum === 1 && !append) {
+      setResults([]);
+    }
+    
     // Stop any playing video when searching
     setActiveVideoId(null);
     setIsPlaying(false);
@@ -315,7 +320,7 @@ export default function BeforestImageSearch() {
       });
     }
 
-    setResults(append ? [...results, ...filteredResults] : filteredResults);
+    setResults(append ? (prev => [...prev, ...filteredResults]) : filteredResults);
     setHasMore(data.hasMore);
     setTotalResults(data.totalFound);
     setPage(pageNum);
