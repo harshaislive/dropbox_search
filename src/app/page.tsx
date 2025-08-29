@@ -468,8 +468,22 @@ export default function BeforestImageSearch() {
     }
   };
 
-  const openPreview = (result: SearchResult, index: number) => {
-    setPreviewResult(result);
+  const openPreview = async (result: SearchResult, index: number) => {
+    // If the result doesn't have URLs, fetch them before opening preview
+    if (!result.download_url && !thumbnailCache.has(result.dropbox_path)) {
+      // Fetch thumbnail and download URLs for this specific item
+      await loadThumbnailsBatch([result.dropbox_path]);
+    }
+    
+    // Get URLs from cache if available
+    const cachedUrls = thumbnailCache.get(result.dropbox_path);
+    const enhancedResult = {
+      ...result,
+      thumbnail_url: result.thumbnail_url || cachedUrls?.thumbnail_url,
+      download_url: result.download_url || cachedUrls?.download_url
+    };
+    
+    setPreviewResult(enhancedResult);
     setPreviewIndex(index);
     setShowPreview(true);
     setCopied(false);
@@ -505,7 +519,17 @@ export default function BeforestImageSearch() {
     }
     
     setPreviewIndex(newIndex);
-    setPreviewResult(results[newIndex]);
+    
+    // Get URLs from cache if available for the new preview
+    const result = results[newIndex];
+    const cachedUrls = thumbnailCache.get(result.dropbox_path);
+    const enhancedResult = {
+      ...result,
+      thumbnail_url: result.thumbnail_url || cachedUrls?.thumbnail_url,
+      download_url: result.download_url || cachedUrls?.download_url
+    };
+    
+    setPreviewResult(enhancedResult);
     setCopied(false);
     setIsPlaying(false);
     setCurrentTime(0);
@@ -1073,7 +1097,7 @@ export default function BeforestImageSearch() {
                   <div className="relative w-full h-full flex items-center justify-center">
                     <video
                       ref={videoRef}
-                      src={previewResult.download_url}
+                      src={previewResult.download_url || thumbnailCache.get(previewResult.dropbox_path)?.download_url}
                       className="max-w-full max-h-full rounded-lg"
                       muted={isMuted}
                       onPlay={() => setIsPlaying(true)}
@@ -1152,7 +1176,7 @@ export default function BeforestImageSearch() {
                   </div>
                 ) : (
                   <img
-                    src={previewResult.download_url || previewResult.thumbnail_url}
+                    src={previewResult.download_url || previewResult.thumbnail_url || thumbnailCache.get(previewResult.dropbox_path)?.download_url || thumbnailCache.get(previewResult.dropbox_path)?.thumbnail_url}
                     alt={previewResult.file_name}
                     className="max-w-full max-h-full object-contain rounded-lg"
                   />
