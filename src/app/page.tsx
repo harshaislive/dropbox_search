@@ -979,6 +979,16 @@ export default function BeforestImageSearch() {
               </div>
             </div>
           )}
+
+          {/* General loading indicator */}
+          {loading && results.length > 0 && (
+            <div className="gallery-toggle-group">
+              <div className="flex items-center gap-2 px-3 py-2 bg-green-50 text-green-700 rounded-lg text-sm">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading more results...
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Date Filters */}
@@ -1041,7 +1051,7 @@ export default function BeforestImageSearch() {
 
 
       {/* Results Count */}
-      {totalResults > 0 && (
+      {totalResults > 0 && !loading && (
         <div className="gallery-results-count">
           {totalResults.toLocaleString()} {
             mediaType === 'videos' ? (totalResults === 1 ? 'video' : 'videos') :
@@ -1049,6 +1059,16 @@ export default function BeforestImageSearch() {
             (totalResults === 1 ? 'item' : 'items')
           } found
           {query && ` for "${query}"`}
+        </div>
+      )}
+
+      {/* Loading Count */}
+      {loading && query && (
+        <div className="gallery-results-count">
+          <div className="flex items-center justify-center gap-2">
+            <Loader2 className="animate-spin w-4 h-4 text-[var(--beforest-forest-green)]" />
+            <span>Searching for {mediaType === 'videos' ? 'videos' : mediaType === 'images' ? 'photos' : 'content'}...</span>
+          </div>
         </div>
       )}
 
@@ -1074,7 +1094,14 @@ export default function BeforestImageSearch() {
                 data-video-id={result.id}
               >
                 {/* Media */}
-                <div className="gallery-media">
+                <div className="gallery-media relative">
+                  {/* Loading overlay for items without thumbnails */}
+                  {!result.thumbnail_url && !thumbnailCache.get(result.dropbox_path)?.thumbnail_url && loadingThumbnails.has(result.dropbox_path) && (
+                    <div className="absolute inset-0 bg-gray-200 animate-pulse rounded-lg flex items-center justify-center z-10">
+                      <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                    </div>
+                  )}
+                  
                   {isVideoFile(result.file_name || '') ? (
                     <VideoThumbnail
                       thumbnailUrl={thumbnailCache.get(result.dropbox_path)?.thumbnail_url || result.thumbnail_url}
