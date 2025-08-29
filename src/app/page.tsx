@@ -68,7 +68,6 @@ export default function BeforestImageSearch() {
   const [showHelp, setShowHelp] = useState(false);
   const [searchId, setSearchId] = useState(0); // Track search iterations
   const [currentAbortController, setCurrentAbortController] = useState<AbortController | null>(null);
-  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
   
   // Sorting and all results state
   const [allResults, setAllResults] = useState<SearchResult[]>([]); // All fetched results
@@ -104,26 +103,6 @@ export default function BeforestImageSearch() {
     );
   };
 
-  // Debounced search function
-  const debouncedSearch = useCallback((searchQuery: string) => {
-    // Clear existing timer
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
-    }
-
-    // Set new timer
-    const newTimer = setTimeout(() => {
-      if (searchQuery.trim()) {
-        searchImages(searchQuery, 1, false);
-      } else {
-        setResults([]);
-        setTotalResults(0);
-        setHasMore(false);
-      }
-    }, 300); // 300ms debounce delay
-
-    setDebounceTimer(newTimer);
-  }, [debounceTimer]);
 
   // Function to manage thumbnail cache size
   const manageCacheSize = useCallback((cache: Map<string, any>) => {
@@ -806,10 +785,6 @@ export default function BeforestImageSearch() {
       if (currentAbortController) {
         currentAbortController.abort();
       }
-      // Clear debounce timer
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
-      }
     };
   }, []);
 
@@ -849,10 +824,7 @@ export default function BeforestImageSearch() {
               type="text"
               value={query}
               onChange={(e) => {
-                const newQuery = e.target.value;
-                setQuery(newQuery);
-                // Trigger debounced search
-                debouncedSearch(newQuery);
+                setQuery(e.target.value);
               }}
               placeholder="Search your photos and videos..."
               className="gallery-search-input"
