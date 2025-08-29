@@ -130,6 +130,26 @@ export async function POST(request: NextRequest): Promise<NextResponse<DropboxSe
       highlights: (file as any).highlights || [],
       enhanced: metadata_only ? false : !!((file as any).thumbnailUrl || (file as any).downloadUrl)
     }));
+    
+    // Apply media type filtering BEFORE date filtering
+    if (search_type !== 'media') {
+      const videoExtensions = ['mp4', 'avi', 'mov', 'mkv', 'wmv', 'flv', 'webm', 'm4v', 'mpg', 'mpeg', '3gp', 'ogv'];
+      const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'heic', 'heif'];
+      
+      if (search_type === 'video') {
+        // Filter for videos only
+        transformedFiles = transformedFiles.filter(file => 
+          videoExtensions.includes(file.file_extension)
+        );
+        console.log(`[DROPBOX] Filtered for videos: ${transformedFiles.length} video files`);
+      } else if (search_type === 'image') {
+        // Filter for images only
+        transformedFiles = transformedFiles.filter(file => 
+          imageExtensions.includes(file.file_extension)
+        );
+        console.log(`[DROPBOX] Filtered for images: ${transformedFiles.length} image files`);
+      }
+    }
 
     // Apply date filtering if provided
     let dateFilteredFiles = transformedFiles;

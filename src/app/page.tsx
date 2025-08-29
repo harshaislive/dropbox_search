@@ -184,7 +184,7 @@ export default function BeforestImageSearch() {
         query: searchQuery,
         max_results: resultsPerPage,
         cursor: (pageNum === 1 && !append) ? undefined : (useCursor || cursor), // Never send cursor for new searches
-        search_type: mediaType === 'videos' ? 'video' : 'media',
+        search_type: mediaType === 'videos' ? 'video' : mediaType === 'images' ? 'image' : 'media',
         date_filter: dateFilter // Add date filter
       };
       
@@ -257,7 +257,7 @@ export default function BeforestImageSearch() {
               query: searchQuery,
               max_results: resultsPerPage,
               cursor: tempCursor,
-              search_type: mediaType === 'videos' ? 'video' : 'media',
+              search_type: mediaType === 'videos' ? 'video' : mediaType === 'images' ? 'image' : 'media',
               date_filter: dateFilter,
               metadata_only: true // OPTIMIZATION 2: Skip URL generation for background fetching
             }),
@@ -268,7 +268,7 @@ export default function BeforestImageSearch() {
           const data: any = await response.json();
           
           // Process results quickly (no URL generation)
-          let newResults = data.files.map((file: any) => ({
+          const newResults = data.files.map((file: any) => ({
             ...file,
             similarity_percentage: file.similarity_percentage || 85,
             source: 'dropbox' as const,
@@ -277,13 +277,7 @@ export default function BeforestImageSearch() {
             download_url: undefined
           }));
 
-          // Apply media type filter
-          if (mediaType !== 'all') {
-            newResults = newResults.filter((result: SearchResult) => {
-              const fileType = getFileType(result.file_name || '');
-              return mediaType === 'videos' ? fileType === 'video' : fileType === 'image';
-            });
-          }
+          // No client-side filtering needed - API already filters by media type
           
           allFetchedResults = [...allFetchedResults, ...newResults];
           tempCursor = data.has_more ? data.cursor : undefined;
@@ -311,16 +305,10 @@ export default function BeforestImageSearch() {
   };
 
   const handleSearchResponse = (data: SearchResponse, append: boolean, pageNum: number) => {
-    // Filter by media type if needed
-    let filteredResults = data.results;
-    if (mediaType !== 'all') {
-      filteredResults = data.results.filter(result => {
-        const fileType = getFileType(result.file_name || '');
-        return mediaType === 'videos' ? fileType === 'video' : fileType === 'image';
-      });
-    }
+    // No client-side filtering needed - API already filters by media type
+    const results = data.results;
 
-    setResults(append ? (prev => [...prev, ...filteredResults]) : filteredResults);
+    setResults(append ? (prev => [...prev, ...results]) : results);
     setHasMore(data.hasMore);
     setTotalResults(data.totalFound);
     setPage(pageNum);
@@ -337,11 +325,11 @@ export default function BeforestImageSearch() {
     // For first page of new search, start fetching all results in background
     if (pageNum === 1 && !append && data.hasMore && data.cursor) {
       console.log(`[RESPONSE] First page loaded, starting background fetch for all results`);
-      fetchAllResults(query, filteredResults, data.cursor);
+      fetchAllResults(query, results, data.cursor);
     } else if (pageNum === 1 && !append && !data.hasMore) {
       // If first page is also the last page, we already have all results
       console.log(`[RESPONSE] Single page result, marking all results as loaded`);
-      setAllResults(filteredResults);
+      setAllResults(results);
       setAllResultsLoaded(true);
     }
   };
@@ -958,7 +946,11 @@ export default function BeforestImageSearch() {
       {/* Results Count */}
       {totalResults > 0 && (
         <div className="gallery-results-count">
-          {totalResults.toLocaleString()} {totalResults === 1 ? 'item' : 'items'} found
+          {totalResults.toLocaleString()} {
+            mediaType === 'videos' ? (totalResults === 1 ? 'video' : 'videos') :
+            mediaType === 'images' ? (totalResults === 1 ? 'photo' : 'photos') :
+            (totalResults === 1 ? 'item' : 'items')
+          } found
           {query && ` for "${query}"`}
         </div>
       )}
@@ -1093,8 +1085,14 @@ export default function BeforestImageSearch() {
       {!loading && query && results.length === 0 && (
         <div className="gallery-empty">
           <ImageIcon className="gallery-empty-icon" />
-          <h3>No results found</h3>
-          <p>Try a different search term or adjust your filters</p>
+          <h3>No {mediaType === 'videos' ? 'videos' : mediaType === 'images' ? 'photos' : 'results'} found</h3>
+          <p>
+            {mediaType === 'videos' 
+              ? "No videos match your search. Try switching to 'All' or 'Photos' tab."
+              : mediaType === 'images' 
+              ? "No photos match your search. Try switching to 'All' or 'Videos' tab."
+              : "Try a different search term or adjust your filters"}
+          </p>
         </div>
       )}
 
