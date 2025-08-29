@@ -287,9 +287,10 @@ export default function BeforestImageSearch() {
           currentPage: pageNum,
           cursor: data.cursor
         };
-        handleSearchResponse(normalizedData, append, pageNum);
+        // Pass the media type this request was made for to detect race conditions
+        handleSearchResponse(normalizedData, append, pageNum, mediaType);
       } else {
-        handleSearchResponse(data, append, pageNum);
+        handleSearchResponse(data, append, pageNum, mediaType);
       }
     } catch (err) {
       // Don't show error if request was cancelled
@@ -382,11 +383,51 @@ export default function BeforestImageSearch() {
     }
   };
 
-  const handleSearchResponse = (data: SearchResponse, append: boolean, pageNum: number) => {
+  const handleSearchResponse = (data: SearchResponse, append: boolean, pageNum: number, expectedMediaType?: string) => {
     // No client-side filtering needed - API already filters by media type
     const results = data.results;
-
-    setResults(append ? (prev => [...prev, ...results]) : results);
+    
+    // RACE CONDITION FIX: Check if this response is still relevant
+    const responseMediaType = expectedMediaType || mediaType;
+    if (responseMediaType !== mediaType) {
+      console.warn(`[FRONTEND] 🚫 Discarding stale response: expected ${responseMediaType}, current ${mediaType}`);
+      return;
+    }
+    
+    // DEBUGGING: Log received results to identify filtering issues
+    console.log(`[FRONTEND] Received ${results.length} results for mediaType: "${mediaType}"`);
+    console.log(`[FRONTEND] Sample file types:`, results.slice(0, 5).map(r => ({
+      name: r.file_name,
+      extension: r.file_extension || 'NO_EXT',
+      type: getFileType(r.file_name || '')
+    })));
+    
+    // DEBUGGING: Verify all results match expected media type
+    const wrongTypeResults = results.filter(r => {
+      const fileType = getFileType(r.file_name || '');
+      if (mediaType === 'videos') return fileType !== 'video';
+      if (mediaType === 'images') return fileType !== 'image';
+      return false; // 'all' accepts everything
+    });
+    
+    if (wrongTypeResults.length > 0) {
+      console.error(`[FRONTEND] ❌ FILTERING BUG: ${wrongTypeResults.length} wrong type results in ${mediaType} tab:`, 
+        wrongTypeResults.map(r => ({ name: r.file_name, type: getFileType(r.file_name || '') })));
+        
+      // FALLBACK: Apply client-side filtering as last resort
+      const filteredResults = results.filter(r => {
+        const fileType = getFileType(r.file_name || '');
+        if (mediaType === 'videos') return fileType === 'video';
+        if (mediaType === 'images') return fileType === 'image';
+        return true; // 'all' accepts everything
+      });
+      
+      console.log(`[FRONTEND] 🔧 Applied client-side fallback filtering: ${results.length} → ${filteredResults.length}`);
+      setResults(append ? (prev => [...prev, ...filteredResults]) : filteredResults);
+    } else {
+      console.log(`[FRONTEND] ✅ All ${results.length} results match ${mediaType} filter`);
+      setResults(append ? (prev => [...prev, ...results]) : results);
+    }
     setHasMore(data.hasMore);
     setTotalResults(data.totalFound);
     setPage(pageNum);

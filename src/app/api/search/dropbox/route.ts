@@ -62,7 +62,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<DropboxSe
       const cachedResults = await getCachedData<DropboxSearchResponse>(cacheKey);
       
       if (cachedResults) {
-        console.log(`[DROPBOX] Returning cached results for: "${query}"`);
+        console.log(`[DROPBOX] ⚡ Returning cached results for: "${query}" (type: ${search_type})`);
+        console.log(`[DROPBOX] Cache contains ${cachedResults.files.length} files`);
         return NextResponse.json(cachedResults);
       }
     }
@@ -230,10 +231,19 @@ export async function POST(request: NextRequest): Promise<NextResponse<DropboxSe
 
     console.log(`[DROPBOX] Search API completed in ${response.processing_time}ms`);
     console.log(`[DROPBOX] Results: ${finalFiles.length}/${dateFilteredFiles.length} files (${date_filter && (date_filter.start || date_filter.end) ? 'with date filter' : 'no filter'})`);
+    
+    // DEBUGGING: Final response validation
+    console.log(`[DROPBOX] 🔍 Final response for search_type "${search_type}":`, {
+      fileCount: finalFiles.length,
+      sampleExtensions: finalFiles.slice(0, 3).map(f => f.file_extension),
+      searchType: search_type,
+      query: query
+    });
 
     // Cache the response (only for non-metadata, first page requests)
     if (!metadata_only && !cursor && finalFiles.length > 0) {
       const cacheKey = CacheKeys.searchResults(query, search_type, 1);
+      console.log(`[DROPBOX] 💾 Caching results with key: ${cacheKey}`);
       await setCachedData(cacheKey, response, CacheTTL.searchResults);
     }
 
