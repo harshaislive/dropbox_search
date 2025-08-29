@@ -180,17 +180,18 @@ export default function BeforestImageSearch() {
 
       // Always use Dropbox file search
       apiEndpoint = '/api/search/dropbox';
+      const searchType = mediaType === 'videos' ? 'video' : mediaType === 'images' ? 'image' : 'media';
       requestBody = {
         query: searchQuery,
         max_results: resultsPerPage,
         cursor: (pageNum === 1 && !append) ? undefined : (useCursor || cursor), // Never send cursor for new searches
-        search_type: mediaType === 'videos' ? 'video' : mediaType === 'images' ? 'image' : 'media',
+        search_type: searchType,
         date_filter: dateFilter // Add date filter
       };
       
+      console.log(`[SEARCH #${searchId}] MediaType: "${mediaType}" → search_type: "${searchType}"`);
       console.log(`[SEARCH #${searchId}] Using Dropbox file search API:`, apiEndpoint);
-      
-      console.log(`[SEARCH #${searchId}] Using endpoint: ${apiEndpoint}`, requestBody);
+      console.log(`[SEARCH #${searchId}] Request body:`, requestBody);
       console.log(`[SEARCH #${searchId}] Cursor values - useCursor: ${useCursor}, current cursor state: ${cursor}`);
 
       const response = await fetch(apiEndpoint, {
@@ -749,7 +750,7 @@ export default function BeforestImageSearch() {
               type="button"
               onClick={() => {
                 setMediaType('all');
-                // Clear results and re-search if there's a query
+                // Immediately clear all results when switching tabs
                 setResults([]);
                 setCursor(undefined);
                 setPage(1);
@@ -758,11 +759,11 @@ export default function BeforestImageSearch() {
                 setAllResults([]);
                 setAllResultsLoaded(false);
                 setSortBy(null);
+                setError(null);
+                setThumbnailCache(new Map());
                 // Re-run search if there's a query
                 if (query.trim()) {
-                  setTimeout(() => {
-                    searchImages(query, 1, false);
-                  }, 0);
+                  searchImages(query, 1, false);
                 }
               }}
               className={`gallery-toggle ${mediaType === 'all' ? 'active' : ''}`}
@@ -773,7 +774,7 @@ export default function BeforestImageSearch() {
               type="button"
               onClick={() => {
                 setMediaType('images');
-                // Clear results and re-search if there's a query
+                // Immediately clear all results when switching tabs
                 setResults([]);
                 setCursor(undefined);
                 setPage(1);
@@ -782,11 +783,11 @@ export default function BeforestImageSearch() {
                 setAllResults([]);
                 setAllResultsLoaded(false);
                 setSortBy(null);
+                setError(null);
+                setThumbnailCache(new Map());
                 // Re-run search if there's a query
                 if (query.trim()) {
-                  setTimeout(() => {
-                    searchImages(query, 1, false);
-                  }, 0);
+                  searchImages(query, 1, false);
                 }
               }}
               className={`gallery-toggle ${mediaType === 'images' ? 'active' : ''}`}
@@ -797,7 +798,7 @@ export default function BeforestImageSearch() {
               type="button"
               onClick={() => {
                 setMediaType('videos');
-                // Clear results and re-search if there's a query
+                // Immediately clear all results when switching tabs
                 setResults([]);
                 setCursor(undefined);
                 setPage(1);
@@ -806,11 +807,11 @@ export default function BeforestImageSearch() {
                 setAllResults([]);
                 setAllResultsLoaded(false);
                 setSortBy(null);
+                setError(null);
+                setThumbnailCache(new Map());
                 // Re-run search if there's a query
                 if (query.trim()) {
-                  setTimeout(() => {
-                    searchImages(query, 1, false);
-                  }, 0);
+                  searchImages(query, 1, false);
                 }
               }}
               className={`gallery-toggle ${mediaType === 'videos' ? 'active' : ''}`}

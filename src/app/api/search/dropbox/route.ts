@@ -90,7 +90,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<DropboxSe
     let searchResult;
     
     if (search_type === 'video') {
-      // Search videos only
+      // Search videos only using dedicated video search
       const videoResult = await searchVideosV2(query, { max_results: searchLimit, start: cursor });
       searchResult = {
         files: videoResult.matches.map(match => ({
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<DropboxSe
         has_more: videoResult.has_more
       };
     } else {
-      // Search all media (images and videos)
+      // For 'image' and 'media' types, search all media then filter
       searchResult = await searchMediaWithThumbnails(query, { 
         max_results: searchLimit, 
         start: cursor,
@@ -136,18 +136,23 @@ export async function POST(request: NextRequest): Promise<NextResponse<DropboxSe
       const videoExtensions = ['mp4', 'avi', 'mov', 'mkv', 'wmv', 'flv', 'webm', 'm4v', 'mpg', 'mpeg', '3gp', 'ogv'];
       const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'heic', 'heif'];
       
+      console.log(`[DROPBOX] Before filtering: ${transformedFiles.length} files for search_type: ${search_type}`);
+      console.log(`[DROPBOX] Sample extensions:`, transformedFiles.slice(0, 5).map(f => f.file_extension));
+      
       if (search_type === 'video') {
         // Filter for videos only
+        const beforeCount = transformedFiles.length;
         transformedFiles = transformedFiles.filter(file => 
           videoExtensions.includes(file.file_extension)
         );
-        console.log(`[DROPBOX] Filtered for videos: ${transformedFiles.length} video files`);
+        console.log(`[DROPBOX] Video filtering: ${beforeCount} → ${transformedFiles.length} files`);
       } else if (search_type === 'image') {
-        // Filter for images only
+        // Filter for images only  
+        const beforeCount = transformedFiles.length;
         transformedFiles = transformedFiles.filter(file => 
           imageExtensions.includes(file.file_extension)
         );
-        console.log(`[DROPBOX] Filtered for images: ${transformedFiles.length} image files`);
+        console.log(`[DROPBOX] Image filtering: ${beforeCount} → ${transformedFiles.length} files`);
       }
     }
 
