@@ -1217,7 +1217,23 @@ export default function BeforestImageSearch() {
             {/* Content */}
             <div className="flex flex-col lg:flex-row h-[calc(90vh-120px)]">
               {/* Media Preview */}
-              <div className="flex-1 bg-black/5 flex items-center justify-center p-8">
+              <div className="flex-1 bg-black/5 flex items-center justify-center p-8 relative">
+                {/* Navigation arrows inside media window */}
+                <div className="absolute top-1/2 -translate-y-1/2 left-4 right-4 flex justify-between pointer-events-none z-10">
+                  <button
+                    onClick={() => navigatePreview('prev')}
+                    className="p-3 bg-black bg-opacity-70 text-white rounded-full hover:bg-opacity-80 transition-colors pointer-events-auto"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => navigatePreview('next')}
+                    className="p-3 bg-black bg-opacity-70 text-white rounded-full hover:bg-opacity-80 transition-colors pointer-events-auto"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+
                 {isVideoFile(previewResult.file_name || '') ? (
                   <div className="relative w-full h-full flex items-center justify-center">
                     <video
@@ -1388,21 +1404,6 @@ export default function BeforestImageSearch() {
               </div>
             </div>
 
-            {/* Navigation */}
-            <div className="absolute top-1/2 -translate-y-1/2 left-4 right-4 flex justify-between pointer-events-none">
-              <button
-                onClick={() => navigatePreview('prev')}
-                className="p-3 bg-black bg-opacity-70 text-white rounded-full hover:bg-opacity-80 transition-colors pointer-events-auto"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => navigatePreview('next')}
-                className="p-3 bg-black bg-opacity-70 text-white rounded-full hover:bg-opacity-80 transition-colors pointer-events-auto"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </div>
           </div>
         </div>
       )}
