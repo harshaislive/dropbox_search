@@ -69,6 +69,15 @@ export default function BeforestImageSearch() {
   const [searchId, setSearchId] = useState(0); // Track search iterations
   const [currentAbortController, setCurrentAbortController] = useState<AbortController | null>(null);
   
+  // SOLUTION 1: useRef to prevent stale closures (2024 best practice)
+  const currentMediaTypeRef = useRef<'all' | 'images' | 'videos'>('all');
+  const isActiveTabRef = useRef(true); // Track if component is still active
+  
+  // Update ref when mediaType changes
+  useEffect(() => {
+    currentMediaTypeRef.current = mediaType;
+  }, [mediaType]);
+  
   // Sorting and all results state
   const [allResults, setAllResults] = useState<SearchResult[]>([]); // All fetched results
   const [isLoadingAllResults, setIsLoadingAllResults] = useState(false);
@@ -362,19 +371,26 @@ export default function BeforestImageSearch() {
     }
   };
 
-  const handleSearchResponse = (data: SearchResponse, append: boolean, pageNum: number, expectedMediaType?: string) => {
-    // No client-side filtering needed - API already filters by media type
-    const results = data.results;
+  const handleSearchResponse = useCallback((data: SearchResponse, append: boolean, pageNum: number, expectedMediaType?: string) => {
+    // SOLUTION 2: Use ref to get current media type (prevents stale closures)
+    const currentMediaType = currentMediaTypeRef.current;
+    const responseMediaType = expectedMediaType || currentMediaType;
     
-    // RACE CONDITION FIX: Check if this response is still relevant
-    const responseMediaType = expectedMediaType || mediaType;
-    if (responseMediaType !== mediaType) {
-      console.warn(`[FRONTEND] 🚫 Discarding stale response: expected ${responseMediaType}, current ${mediaType}`);
+    // Check if component is still active and response is relevant
+    if (!isActiveTabRef.current) {
+      console.warn(`[FRONTEND] 🚫 Component inactive, discarding response`);
       return;
     }
     
+    if (responseMediaType !== currentMediaType) {
+      console.warn(`[FRONTEND] 🚫 Discarding stale response: expected ${responseMediaType}, current ${currentMediaType}`);
+      return;
+    }
+    
+    const results = data.results;
+    
     // DEBUGGING: Log received results to identify filtering issues
-    console.log(`[FRONTEND] Received ${results.length} results for mediaType: "${mediaType}"`);
+    console.log(`[FRONTEND] Received ${results.length} results for mediaType: "${currentMediaType}"`);
     console.log(`[FRONTEND] Sample file types:`, results.slice(0, 5).map(r => ({
       name: r.file_name,
       extension: r.file_extension || 'NO_EXT',
@@ -384,28 +400,29 @@ export default function BeforestImageSearch() {
     // DEBUGGING: Verify all results match expected media type
     const wrongTypeResults = results.filter(r => {
       const fileType = getFileType(r.file_name || '');
-      if (mediaType === 'videos') return fileType !== 'video';
-      if (mediaType === 'images') return fileType !== 'image';
+      if (currentMediaType === 'videos') return fileType !== 'video';
+      if (currentMediaType === 'images') return fileType !== 'image';
       return false; // 'all' accepts everything
     });
     
     if (wrongTypeResults.length > 0) {
-      console.error(`[FRONTEND] ❌ FILTERING BUG: ${wrongTypeResults.length} wrong type results in ${mediaType} tab:`, 
+      console.error(`[FRONTEND] ❌ FILTERING BUG: ${wrongTypeResults.length} wrong type results in ${currentMediaType} tab:`, 
         wrongTypeResults.map(r => ({ name: r.file_name, type: getFileType(r.file_name || '') })));
         
       // FALLBACK: Apply client-side filtering as last resort
       const filteredResults = results.filter(r => {
         const fileType = getFileType(r.file_name || '');
-        if (mediaType === 'videos') return fileType === 'video';
-        if (mediaType === 'images') return fileType === 'image';
+        if (currentMediaType === 'videos') return fileType === 'video';
+        if (currentMediaType === 'images') return fileType === 'image';
         return true; // 'all' accepts everything
       });
       
       console.log(`[FRONTEND] 🔧 Applied client-side fallback filtering: ${results.length} → ${filteredResults.length}`);
-      setResults(append ? (prev => [...prev, ...filteredResults]) : filteredResults);
+      // SOLUTION 3: Use functional state updates to prevent race conditions
+      setResults(prevResults => append ? [...prevResults, ...filteredResults] : filteredResults);
     } else {
-      console.log(`[FRONTEND] ✅ All ${results.length} results match ${mediaType} filter`);
-      setResults(append ? (prev => [...prev, ...results]) : results);
+      console.log(`[FRONTEND] ✅ All ${results.length} results match ${currentMediaType} filter`);
+      setResults(prevResults => append ? [...prevResults, ...results] : results);
     }
     setHasMore(data.hasMore);
     setTotalResults(data.totalFound);
@@ -430,7 +447,7 @@ export default function BeforestImageSearch() {
       setAllResults(results);
       setAllResultsLoaded(true);
     }
-  };
+  }, []); // Empty dependencies since we use refs to avoid stale closures
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -780,7 +797,12 @@ export default function BeforestImageSearch() {
 
   // Cleanup on unmount
   useEffect(() => {
+    isActiveTabRef.current = true;
+    
     return () => {
+      // Mark component as inactive to prevent stale responses
+      isActiveTabRef.current = false;
+      
       // Cancel any pending requests
       if (currentAbortController) {
         currentAbortController.abort();
@@ -858,21 +880,37 @@ export default function BeforestImageSearch() {
             <button
               type="button"
               onClick={() => {
+                // SOLUTION 4: Aggressive cleanup when switching tabs
+                console.log(`[TAB_SWITCH] Switching from ${mediaType} to all`);
+                
+                // Cancel any pending requests immediately
+                if (currentAbortController) {
+                  currentAbortController.abort();
+                  setCurrentAbortController(null);
+                }
+                
+                // Update media type first
                 setMediaType('all');
-                // Immediately clear all results when switching tabs
-                setResults([]);
-                setCursor(undefined);
-                setPage(1);
-                setTotalResults(0);
-                setHasMore(false);
-                setAllResults([]);
-                setAllResultsLoaded(false);
-                setSortBy(null);
-                setError(null);
-                setThumbnailCache(new Map());
+                
+                // Immediately clear all results and state (functional updates)
+                setResults(() => []);
+                setCursor(() => undefined);
+                setPage(() => 1);
+                setTotalResults(() => 0);
+                setHasMore(() => false);
+                setAllResults(() => []);
+                setAllResultsLoaded(() => false);
+                setSortBy(() => null);
+                setError(() => null);
+                setThumbnailCache(() => new Map());
+                setLoadingThumbnails(() => new Set());
+                
                 // Re-run search if there's a query
                 if (query.trim()) {
-                  searchImages(query, 1, false);
+                  // Small delay to ensure state is cleared
+                  setTimeout(() => {
+                    searchImages(query, 1, false);
+                  }, 50);
                 }
               }}
               className={`gallery-toggle ${mediaType === 'all' ? 'active' : ''}`}
@@ -882,21 +920,30 @@ export default function BeforestImageSearch() {
             <button
               type="button"
               onClick={() => {
+                console.log(`[TAB_SWITCH] Switching from ${mediaType} to images`);
+                
+                if (currentAbortController) {
+                  currentAbortController.abort();
+                  setCurrentAbortController(null);
+                }
+                
                 setMediaType('images');
-                // Immediately clear all results when switching tabs
-                setResults([]);
-                setCursor(undefined);
-                setPage(1);
-                setTotalResults(0);
-                setHasMore(false);
-                setAllResults([]);
-                setAllResultsLoaded(false);
-                setSortBy(null);
-                setError(null);
-                setThumbnailCache(new Map());
-                // Re-run search if there's a query
+                setResults(() => []);
+                setCursor(() => undefined);
+                setPage(() => 1);
+                setTotalResults(() => 0);
+                setHasMore(() => false);
+                setAllResults(() => []);
+                setAllResultsLoaded(() => false);
+                setSortBy(() => null);
+                setError(() => null);
+                setThumbnailCache(() => new Map());
+                setLoadingThumbnails(() => new Set());
+                
                 if (query.trim()) {
-                  searchImages(query, 1, false);
+                  setTimeout(() => {
+                    searchImages(query, 1, false);
+                  }, 50);
                 }
               }}
               className={`gallery-toggle ${mediaType === 'images' ? 'active' : ''}`}
@@ -906,21 +953,30 @@ export default function BeforestImageSearch() {
             <button
               type="button"
               onClick={() => {
+                console.log(`[TAB_SWITCH] Switching from ${mediaType} to videos`);
+                
+                if (currentAbortController) {
+                  currentAbortController.abort();
+                  setCurrentAbortController(null);
+                }
+                
                 setMediaType('videos');
-                // Immediately clear all results when switching tabs
-                setResults([]);
-                setCursor(undefined);
-                setPage(1);
-                setTotalResults(0);
-                setHasMore(false);
-                setAllResults([]);
-                setAllResultsLoaded(false);
-                setSortBy(null);
-                setError(null);
-                setThumbnailCache(new Map());
-                // Re-run search if there's a query
+                setResults(() => []);
+                setCursor(() => undefined);
+                setPage(() => 1);
+                setTotalResults(() => 0);
+                setHasMore(() => false);
+                setAllResults(() => []);
+                setAllResultsLoaded(() => false);
+                setSortBy(() => null);
+                setError(() => null);
+                setThumbnailCache(() => new Map());
+                setLoadingThumbnails(() => new Set());
+                
                 if (query.trim()) {
-                  searchImages(query, 1, false);
+                  setTimeout(() => {
+                    searchImages(query, 1, false);
+                  }, 50);
                 }
               }}
               className={`gallery-toggle ${mediaType === 'videos' ? 'active' : ''}`}
