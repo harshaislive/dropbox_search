@@ -761,12 +761,21 @@ export default function BeforestImageSearch() {
               type="button"
               onClick={() => {
                 setMediaType('all');
-                // Clear results only, don't auto-search
+                // Clear results and re-search if there's a query
                 setResults([]);
                 setCursor(undefined);
                 setPage(1);
                 setTotalResults(0);
                 setHasMore(false);
+                setAllResults([]);
+                setAllResultsLoaded(false);
+                setSortBy(null);
+                // Re-run search if there's a query
+                if (query.trim()) {
+                  setTimeout(() => {
+                    searchImages(query, 1, false);
+                  }, 0);
+                }
               }}
               className={`gallery-toggle ${mediaType === 'all' ? 'active' : ''}`}
             >
@@ -776,12 +785,21 @@ export default function BeforestImageSearch() {
               type="button"
               onClick={() => {
                 setMediaType('images');
-                // Clear results only, don't auto-search
+                // Clear results and re-search if there's a query
                 setResults([]);
                 setCursor(undefined);
                 setPage(1);
                 setTotalResults(0);
                 setHasMore(false);
+                setAllResults([]);
+                setAllResultsLoaded(false);
+                setSortBy(null);
+                // Re-run search if there's a query
+                if (query.trim()) {
+                  setTimeout(() => {
+                    searchImages(query, 1, false);
+                  }, 0);
+                }
               }}
               className={`gallery-toggle ${mediaType === 'images' ? 'active' : ''}`}
             >
@@ -791,12 +809,21 @@ export default function BeforestImageSearch() {
               type="button"
               onClick={() => {
                 setMediaType('videos');
-                // Clear results only, don't auto-search
+                // Clear results and re-search if there's a query
                 setResults([]);
                 setCursor(undefined);
                 setPage(1);
                 setTotalResults(0);
                 setHasMore(false);
+                setAllResults([]);
+                setAllResultsLoaded(false);
+                setSortBy(null);
+                // Re-run search if there's a query
+                if (query.trim()) {
+                  setTimeout(() => {
+                    searchImages(query, 1, false);
+                  }, 0);
+                }
               }}
               className={`gallery-toggle ${mediaType === 'videos' ? 'active' : ''}`}
             >
