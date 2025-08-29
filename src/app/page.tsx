@@ -67,6 +67,8 @@ export default function BeforestImageSearch() {
   const [showFilters, setShowFilters] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [searchId, setSearchId] = useState(0); // Track search iterations
+  const [currentAbortController, setCurrentAbortController] = useState<AbortController | null>(null);
+  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
   
   // Sorting and all results state
   const [allResults, setAllResults] = useState<SearchResult[]>([]); // All fetched results
@@ -79,7 +81,59 @@ export default function BeforestImageSearch() {
   const [loadingThumbnails, setLoadingThumbnails] = useState<Set<string>>(new Set());
   const [thumbnailCache, setThumbnailCache] = useState<Map<string, { thumbnail_url?: string; download_url?: string }>>(new Map());
   
+  const MAX_CACHE_SIZE = 500; // Maximum number of cached thumbnails
+  
   const resultsPerPage = 50;
+
+  // Loading skeleton component
+  const LoadingSkeleton = ({ count = 12 }: { count?: number }) => {
+    return (
+      <div className="gallery-container">
+        <div className="gallery-grid">
+          {Array.from({ length: count }).map((_, index) => (
+            <div key={index} className="gallery-item animate-pulse">
+              <div className="gallery-media bg-gray-300 rounded-lg"></div>
+              <div className="gallery-bottom-info">
+                <div className="h-4 bg-gray-300 rounded mb-2"></div>
+                <div className="h-3 bg-gray-300 rounded w-3/4"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // Debounced search function
+  const debouncedSearch = useCallback((searchQuery: string) => {
+    // Clear existing timer
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+
+    // Set new timer
+    const newTimer = setTimeout(() => {
+      if (searchQuery.trim()) {
+        searchImages(searchQuery, 1, false);
+      } else {
+        setResults([]);
+        setTotalResults(0);
+        setHasMore(false);
+      }
+    }, 300); // 300ms debounce delay
+
+    setDebounceTimer(newTimer);
+  }, [debounceTimer]);
+
+  // Function to manage thumbnail cache size
+  const manageCacheSize = useCallback((cache: Map<string, any>) => {
+    if (cache.size > MAX_CACHE_SIZE) {
+      const keysArray = Array.from(cache.keys());
+      const keysToDelete = keysArray.slice(0, cache.size - MAX_CACHE_SIZE + 100); // Remove 100 extra for buffer
+      keysToDelete.forEach(key => cache.delete(key));
+      console.log(`[CACHE] Cleaned up ${keysToDelete.length} entries, cache size now: ${cache.size}`);
+    }
+  }, []);
 
   // Function to load thumbnails in batch
   const loadThumbnailsBatch = useCallback(async (paths: string[]) => {
@@ -119,6 +173,10 @@ export default function BeforestImageSearch() {
               });
             }
           });
+          
+          // Manage cache size
+          manageCacheSize(newCache);
+          
           return newCache;
         });
       }
@@ -155,6 +213,15 @@ export default function BeforestImageSearch() {
       setHasMore(false);
       return;
     }
+
+    // Cancel previous request if it exists
+    if (currentAbortController) {
+      currentAbortController.abort();
+    }
+
+    // Create new abort controller for this request
+    const abortController = new AbortController();
+    setCurrentAbortController(abortController);
 
     setLoading(true);
     setError(null);
@@ -198,6 +265,7 @@ export default function BeforestImageSearch() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
+        signal: abortController.signal,
       });
 
       if (!response.ok) throw new Error('Search failed');
@@ -224,10 +292,19 @@ export default function BeforestImageSearch() {
         handleSearchResponse(data, append, pageNum);
       }
     } catch (err) {
+      // Don't show error if request was cancelled
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.log(`[SEARCH #${searchId}] Request cancelled`);
+        return;
+      }
       setError(err instanceof Error ? err.message : 'Search failed');
       setResults([]);
     } finally {
       setLoading(false);
+      // Clear abort controller when request completes
+      if (currentAbortController === abortController) {
+        setCurrentAbortController(null);
+      }
     }
   };
 
@@ -681,6 +758,20 @@ export default function BeforestImageSearch() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showPreview, previewIndex, results.length]);
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      // Cancel any pending requests
+      if (currentAbortController) {
+        currentAbortController.abort();
+      }
+      // Clear debounce timer
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
@@ -716,7 +807,12 @@ export default function BeforestImageSearch() {
             <input
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                const newQuery = e.target.value;
+                setQuery(newQuery);
+                // Trigger debounced search
+                debouncedSearch(newQuery);
+              }}
               placeholder="Search your photos and videos..."
               className="gallery-search-input"
               disabled={loading}
@@ -962,6 +1058,9 @@ export default function BeforestImageSearch() {
           {error}
         </div>
       )}
+
+      {/* Loading State */}
+      {loading && results.length === 0 && <LoadingSkeleton />}
 
       {/* Gallery Grid */}
       {results.length > 0 && (
