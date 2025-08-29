@@ -907,10 +907,15 @@ export default function BeforestImageSearch() {
                 
                 // Re-run search if there's a query
                 if (query.trim()) {
-                  // Small delay to ensure state is cleared
+                  const searchQuery = query;
                   setTimeout(() => {
-                    searchImages(query, 1, false);
-                  }, 50);
+                    console.log(`[TAB_SWITCH] Starting search for "${searchQuery}" in ALL tab`);
+                    if (currentMediaTypeRef.current === 'all') {
+                      searchImages(searchQuery, 1, false);
+                    } else {
+                      console.warn(`[TAB_SWITCH] Media type mismatch: expected all, got ${currentMediaTypeRef.current}`);
+                    }
+                  }, 150);
                 }
               }}
               className={`gallery-toggle ${mediaType === 'all' ? 'active' : ''}`}
@@ -941,9 +946,17 @@ export default function BeforestImageSearch() {
                 setLoadingThumbnails(() => new Set());
                 
                 if (query.trim()) {
+                  // Capture the query to avoid closure issues
+                  const searchQuery = query;
                   setTimeout(() => {
-                    searchImages(query, 1, false);
-                  }, 50);
+                    console.log(`[TAB_SWITCH] Starting search for "${searchQuery}" in IMAGES tab`);
+                    // Verify the media type is now 'images' before searching
+                    if (currentMediaTypeRef.current === 'images') {
+                      searchImages(searchQuery, 1, false);
+                    } else {
+                      console.warn(`[TAB_SWITCH] Media type mismatch: expected images, got ${currentMediaTypeRef.current}`);
+                    }
+                  }, 150);
                 }
               }}
               className={`gallery-toggle ${mediaType === 'images' ? 'active' : ''}`}
@@ -974,9 +987,15 @@ export default function BeforestImageSearch() {
                 setLoadingThumbnails(() => new Set());
                 
                 if (query.trim()) {
+                  const searchQuery = query;
                   setTimeout(() => {
-                    searchImages(query, 1, false);
-                  }, 50);
+                    console.log(`[TAB_SWITCH] Starting search for "${searchQuery}" in VIDEOS tab`);
+                    if (currentMediaTypeRef.current === 'videos') {
+                      searchImages(searchQuery, 1, false);
+                    } else {
+                      console.warn(`[TAB_SWITCH] Media type mismatch: expected videos, got ${currentMediaTypeRef.current}`);
+                    }
+                  }, 150);
                 }
               }}
               className={`gallery-toggle ${mediaType === 'videos' ? 'active' : ''}`}

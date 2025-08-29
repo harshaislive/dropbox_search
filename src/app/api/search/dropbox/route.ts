@@ -54,7 +54,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<DropboxSe
       metadata_only = false
     } = body;
 
-    console.log(`[DROPBOX] Search API: "${query}" (type: ${search_type}, max: ${max_results}, metadata_only: ${metadata_only})`);
+    console.log(`[DROPBOX] 🔍 Search API START: "${query}" (type: ${search_type}, max: ${max_results}, metadata_only: ${metadata_only})`);
     
     // Check Redis cache first (only for non-metadata requests)
     if (!metadata_only && !cursor) {
@@ -233,9 +233,24 @@ export async function POST(request: NextRequest): Promise<NextResponse<DropboxSe
     console.log(`[DROPBOX] Results: ${finalFiles.length}/${dateFilteredFiles.length} files (${date_filter && (date_filter.start || date_filter.end) ? 'with date filter' : 'no filter'})`);
     
     // DEBUGGING: Final response validation
+    const fileTypes = finalFiles.map(f => {
+      const ext = f.file_extension;
+      const videoExts = ['mp4', 'avi', 'mov', 'mkv', 'wmv', 'flv', 'webm', 'm4v', 'mpg', 'mpeg', '3gp', 'ogv'];
+      const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'heic', 'heif'];
+      if (videoExts.includes(ext)) return 'video';
+      if (imageExts.includes(ext)) return 'image';
+      return 'unknown';
+    });
+    
+    const typeCounts = fileTypes.reduce((acc, type) => {
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
     console.log(`[DROPBOX] 🔍 Final response for search_type "${search_type}":`, {
       fileCount: finalFiles.length,
-      sampleExtensions: finalFiles.slice(0, 3).map(f => f.file_extension),
+      typeCounts: typeCounts,
+      sampleFiles: finalFiles.slice(0, 3).map(f => ({ name: f.file_name, ext: f.file_extension })),
       searchType: search_type,
       query: query
     });
