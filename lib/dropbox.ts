@@ -17,8 +17,18 @@ class DropboxClient {
     const appKey = process.env.DROPBOX_APP_KEY;
     const appSecret = process.env.DROPBOX_APP_SECRET;
 
+    // Debug logging for server environment
+    console.log('Environment check:', {
+      hasRefreshToken: !!refreshToken,
+      hasAppKey: !!appKey,
+      hasAppSecret: !!appSecret,
+      refreshTokenLength: refreshToken?.length || 0,
+      appKeyLength: appKey?.length || 0,
+      appSecretLength: appSecret?.length || 0
+    });
+
     if (!refreshToken || !appKey || !appSecret) {
-      throw new Error('MISSING_CREDENTIALS: Please configure DROPBOX_REFRESH_TOKEN, DROPBOX_APP_KEY, and DROPBOX_APP_SECRET in your .env.local file');
+      throw new Error(`MISSING_CREDENTIALS: Missing variables - refreshToken: ${!!refreshToken}, appKey: ${!!appKey}, appSecret: ${!!appSecret}`);
     }
 
     try {

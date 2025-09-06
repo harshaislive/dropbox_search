@@ -273,7 +273,7 @@ export function ImmersiveMediaGrid({
   return (
     <div className="w-full px-2 md:px-4">
       {/* Uniform Square Grid Layout */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1 md:gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-0">
         {results.map((file) => {
           const thumbnail = thumbnails[file.id];
           const isMediaFile = isImage(file.extension) || isVideo(file.extension);
