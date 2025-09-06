@@ -1,0 +1,239 @@
+import { Dropbox, DropboxAuth } from 'dropbox';
+import axios from 'axios';
+
+interface TokenResponse {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+}
+
+class DropboxClient {
+  private dbx: Dropbox | null = null;
+  private accessToken: string | null = null;
+  private tokenExpiry: Date | null = null;
+
+  private async refreshAccessToken(): Promise<string> {
+    const refreshToken = process.env.DROPBOX_REFRESH_TOKEN;
+    const appKey = process.env.DROPBOX_APP_KEY;
+    const appSecret = process.env.DROPBOX_APP_SECRET;
+
+    if (!refreshToken || !appKey || !appSecret) {
+      throw new Error('MISSING_CREDENTIALS: Please configure DROPBOX_REFRESH_TOKEN, DROPBOX_APP_KEY, and DROPBOX_APP_SECRET in your .env.local file');
+    }
+
+    try {
+      const response = await axios.post<TokenResponse>(
+        'https://api.dropbox.com/oauth2/token',
+        new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: refreshToken,
+          client_id: appKey,
+          client_secret: appSecret,
+        }),
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      );
+
+      this.accessToken = response.data.access_token;
+      this.tokenExpiry = new Date(Date.now() + response.data.expires_in * 1000);
+      
+      return this.accessToken;
+    } catch (error: any) {
+      console.error('Error refreshing access token:', error.response?.data || error.message);
+      if (error.response?.status === 400) {
+        throw new Error('INVALID_CREDENTIALS: Invalid refresh token or app credentials. Please check your Dropbox app configuration.');
+      }
+      throw new Error('NETWORK_ERROR: Failed to connect to Dropbox API. Please check your internet connection.');
+    }
+  }
+
+  async getClient(): Promise<Dropbox> {
+    // Check if we need to refresh the token
+    if (!this.accessToken || !this.tokenExpiry || this.tokenExpiry <= new Date()) {
+      const accessToken = await this.refreshAccessToken();
+      
+      // Configure Dropbox client with proper fetch for Node.js
+      this.dbx = new Dropbox({ 
+        accessToken,
+        fetch: async (input: any, init?: any) => {
+          // Use dynamic import for node-fetch in server environment
+          if (typeof window === 'undefined') {
+            const { default: nodeFetch } = await import('node-fetch');
+            return nodeFetch(input, init) as any;
+          }
+          // Use browser fetch in client environment
+          return fetch(input, init);
+        }
+      });
+    }
+
+    if (!this.dbx) {
+      throw new Error('Failed to initialize Dropbox client');
+    }
+
+    return this.dbx;
+  }
+
+  async searchFiles(query: string, options?: {
+    path?: string;
+    maxResults?: number;
+    fileCategories?: Array<'image' | 'document' | 'pdf' | 'video' | 'folder' | 'paper' | 'others'>;
+    fileExtensions?: string[];
+    cursor?: string;
+  }) {
+    const client = await this.getClient();
+    
+    // Parse query for type filters (e.g., "coffee type:image")
+    let searchQuery = query;
+    let typeFilter: string | undefined;
+    
+    const typeMatch = query.match(/type:(\w+)/i);
+    if (typeMatch) {
+      typeFilter = typeMatch[1].toLowerCase();
+      searchQuery = query.replace(/type:\w+/i, '').trim();
+    }
+
+    try {
+      if (options?.cursor) {
+        // Continue search with cursor
+        return await client.filesSearchContinueV2({
+          cursor: options.cursor,
+        });
+      }
+
+      // Validate query - Dropbox requires at least one character or a file extension filter
+      if (!searchQuery && !options?.fileExtensions?.length && !typeFilter) {
+        throw new Error('Search query cannot be empty. Please provide a search term or file type filter.');
+      }
+
+      // If query is empty but we have type filter, use a wildcard
+      if (!searchQuery && typeFilter) {
+        searchQuery = '*';
+      }
+
+      // Map type filter to file categories
+      let fileCategories = options?.fileCategories;
+      if (typeFilter) {
+        switch (typeFilter) {
+          case 'image':
+          case 'images':
+            fileCategories = ['image'];
+            break;
+          case 'video':
+          case 'videos':
+            fileCategories = ['video'];
+            break;
+          case 'document':
+          case 'documents':
+          case 'doc':
+          case 'docs':
+            fileCategories = ['document', 'pdf'];
+            break;
+          case 'pdf':
+            fileCategories = ['pdf'];
+            break;
+        }
+      }
+
+      // Start new search - ensure we have valid search parameters
+      const searchOptions: any = {
+        query: searchQuery || '*', // Use wildcard if no query
+        options: {
+          max_results: Math.min(options?.maxResults || 20, 100), // Limit to max 100
+        },
+      };
+
+      // Only add path if it's provided
+      if (options?.path) {
+        searchOptions.options.path = options.path;
+      }
+
+      if (fileCategories && fileCategories.length > 0) {
+        searchOptions.options.file_categories = fileCategories;
+      }
+
+      if (options?.fileExtensions && options.fileExtensions.length > 0) {
+        searchOptions.options.file_extensions = options.fileExtensions;
+      }
+
+      console.log('Dropbox search options:', JSON.stringify(searchOptions, null, 2));
+      
+      return await client.filesSearchV2(searchOptions);
+    } catch (error: any) {
+      console.error('Error searching files:', error);
+      
+      // Provide more specific error messages
+      if (error.error?.includes('invalid_argument')) {
+        throw new Error('INVALID_SEARCH_PARAMS: Search parameters are invalid. Please check your query and try again.');
+      }
+      
+      throw error;
+    }
+  }
+
+  async getTemporaryLink(path: string): Promise<string> {
+    const client = await this.getClient();
+    
+    try {
+      const response = await client.filesGetTemporaryLink({ path });
+      return response.result.link;
+    } catch (error) {
+      console.error('Error getting temporary link:', error);
+      throw error;
+    }
+  }
+
+  async downloadFile(path: string): Promise<Blob> {
+    const client = await this.getClient();
+    
+    try {
+      const response = await client.filesDownload({ path });
+      return (response.result as any).fileBlob;
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      throw error;
+    }
+  }
+
+  async getThumbnail(path: string, size: 'w32h32' | 'w64h64' | 'w128h128' | 'w256h256' | 'w480h320' | 'w640h480' | 'w960h640' | 'w1024h768' | 'w2048h1536' = 'w256h256'): Promise<string> {
+    const accessToken = this.accessToken || await this.refreshAccessToken();
+    
+    try {
+      // Use the correct Dropbox thumbnail API endpoint
+      const nodeFetch = await import('node-fetch');
+      const response = await nodeFetch.default('https://content.dropboxapi.com/2/files/get_thumbnail_v2', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Dropbox-API-Arg': JSON.stringify({
+            resource: {
+              '.tag': 'path',
+              path: path,
+            },
+            size: size,
+            format: 'jpeg',
+            mode: 'strict',
+            quality: 'quality_80'
+          }),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Thumbnail API error: ${response.status}`);
+      }
+
+      const buffer = await response.buffer();
+      const base64 = buffer.toString('base64');
+      return `data:image/jpeg;base64,${base64}`;
+    } catch (error) {
+      console.error('Error getting thumbnail:', error);
+      throw error;
+    }
+  }
+}
+
+// Export singleton instance
+export const dropboxClient = new DropboxClient();
