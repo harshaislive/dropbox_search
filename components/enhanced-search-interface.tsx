@@ -636,7 +636,12 @@ export function EnhancedSearchInterface() {
       {hasMore && !loading && (
         <div className="container mx-auto px-4 max-w-7xl">
           <div className="mt-8 text-center">
-            <Button onClick={loadMore} variant="outline" size="lg">
+            <Button 
+              onClick={loadMore} 
+              size="lg"
+              className="bg-gradient-to-r from-[#86312b] to-[#ff774a] hover:from-[#9e3430] hover:to-[#ff774a] text-white font-medium tracking-wide transition-all duration-300 transform hover:scale-105 hover:shadow-lg border-0 px-8 py-3 text-sm uppercase"
+              style={{ fontFamily: 'ABC Arizona Flare, serif' }}
+            >
               Load More Results
             </Button>
           </div>
@@ -697,20 +702,18 @@ export function EnhancedSearchInterface() {
         <Dialog open={!!selectedFile} onOpenChange={() => setSelectedFile(null)}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
             <DialogHeader>
-              <DialogTitle className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {selectedFile && getFileIcon(selectedFile)}
-                  {selectedFile?.name}
-                </div>
-                {results.length > 1 && (
-                  <div className="text-xs text-muted-foreground font-normal">
-                    Press ← → to navigate • ESC to close
-                  </div>
-                )}
+              <DialogTitle className="flex items-center gap-2">
+                {selectedFile && getFileIcon(selectedFile)}
+                {selectedFile?.name}
               </DialogTitle>
               <DialogDescription className="sr-only">
                 Preview of {selectedFile?.name}. {selectedFile?.extension && ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'heic', 'heif'].includes(selectedFile.extension.toLowerCase()) ? 'Image preview' : selectedFile?.extension && ['mp4', 'mov', 'webm'].includes(selectedFile.extension.toLowerCase()) ? 'Video preview with playback controls' : 'File preview'}
               </DialogDescription>
+              {results.length > 1 && (
+                <div className="text-xs text-muted-foreground mt-1 text-center bg-muted/50 rounded-md px-3 py-1">
+                  Press ← → to navigate • ESC to close
+                </div>
+              )}
             </DialogHeader>
             <div className="mt-4">
               {previewLoading ? (
