@@ -272,8 +272,32 @@ export function ImmersiveMediaGrid({
 
   return (
     <div className="w-full">
-      {/* Immersive Full-Width Masonry Grid with No Gaps */}
-      <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 2xl:columns-6 gap-0">
+      {/* Immersive Full-Width Masonry Grid - Dynamic Width Columns */}
+      <div 
+        className="w-full gap-0 mobile-masonry"
+        style={{
+          columnCount: 'auto',
+          columnWidth: '100%',
+          columnGap: '0px'
+        }}
+      >
+        <style jsx>{`
+          @media (min-width: 640px) {
+            .mobile-masonry {
+              column-width: 280px !important;
+            }
+          }
+          @media (min-width: 768px) {
+            .mobile-masonry {
+              column-width: 300px !important;
+            }
+          }
+          @media (min-width: 1024px) {
+            .mobile-masonry {
+              column-width: 280px !important;
+            }
+          }
+        `}</style>
         {results.map((file) => {
           const thumbnail = thumbnails[file.id];
           const isMediaFile = isImage(file.extension) || isVideo(file.extension);

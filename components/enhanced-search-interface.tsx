@@ -359,24 +359,31 @@ export function EnhancedSearchInterface() {
       {/* Header and Search - Constrained Container */}
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Header */}
-        <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            Beforest Dropbox Search
+        <div className="mb-6 md:mb-8 text-center">
+          <div className="flex items-center justify-center gap-3 md:gap-4 mb-3 md:mb-4">
+            <img 
+              src="https://beforest.co/wp-content/uploads/2024/10/23-Beforest-Black-with-Tagline.png" 
+              alt="Beforest Logo"
+              className="h-8 md:h-12 w-auto object-contain"
+            />
+          </div>
+          <h1 className="text-2xl md:text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            Vector Media Search
           </h1>
-          <p className="text-muted-foreground">Advanced file search with AI-powered filters</p>
+          <p className="text-sm md:text-base text-muted-foreground px-4">Advanced file search with AI-powered filters</p>
         </div>
 
         {/* Search Bar with Filters */}
-        <div className="mb-8 space-y-4">
-          <form onSubmit={handleSearch} className="flex gap-2 max-w-3xl mx-auto">
+        <div className="mb-6 md:mb-8 space-y-3 md:space-y-4 px-2 md:px-0">
+          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-2 max-w-3xl mx-auto">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4 md:w-5 md:h-5" />
               <Input
                 type="text"
-                placeholder='Search files... (Press ⌘K for command palette)'
+                placeholder='Search files...'
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="pl-10 h-12 text-lg"
+                className="pl-9 md:pl-10 h-11 md:h-12 text-base md:text-lg"
                 onKeyDown={(e) => {
                   if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
                     e.preventDefault();
@@ -386,13 +393,15 @@ export function EnhancedSearchInterface() {
               />
             </div>
             
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="lg">
-                  <Filter className="w-4 h-4 mr-2" />
-                  {fileTypeFilter === 'image' ? 'Images' : 'Videos'}
-                </Button>
-              </DropdownMenuTrigger>
+            <div className="flex gap-2 sm:gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="default" className="flex-1 sm:flex-none">
+                    <Filter className="w-4 h-4 mr-1 md:mr-2" />
+                    <span className="hidden sm:inline">{fileTypeFilter === 'image' ? 'Images' : 'Videos'}</span>
+                    <span className="sm:hidden">{fileTypeFilter === 'image' ? 'Img' : 'Vid'}</span>
+                  </Button>
+                </DropdownMenuTrigger>
               <DropdownMenuContent>
                 <DropdownMenuLabel>Media Type</DropdownMenuLabel>
                 <DropdownMenuSeparator />
@@ -417,24 +426,25 @@ export function EnhancedSearchInterface() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button 
-              type="submit" 
-              size="lg"
-              disabled={loading || !query.trim()}
-              className={`px-8 transition-all duration-300 ${
-                filterChanged && query.trim() 
-                  ? 'bg-orange-500 hover:bg-orange-600 text-white shadow-lg ring-2 ring-orange-200 animate-pulse' 
-                  : ''
-              }`}
-            >
-              {loading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : filterChanged && query.trim() ? (
-                'Search Again'
-              ) : (
-                'Search'
-              )}
-            </Button>
+              <Button 
+                type="submit" 
+                size="default"
+                disabled={loading || !query.trim()}
+                className={`px-4 md:px-8 transition-all duration-300 flex-1 sm:flex-none ${
+                  filterChanged && query.trim() 
+                    ? 'bg-orange-500 hover:bg-orange-600 text-white shadow-lg ring-2 ring-orange-200 animate-pulse' 
+                    : ''
+                }`}
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" />
+                ) : filterChanged && query.trim() ? (
+                  'Search Again'
+                ) : (
+                  'Search'
+                )}
+              </Button>
+            </div>
           </form>
 
           {/* View Toggle */}

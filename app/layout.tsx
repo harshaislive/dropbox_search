@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Beforest Dropbox Search",
-  description: "Search and browse your Dropbox files instantly",
+  title: "Vector Media Search",
+  description: "Advanced file search with AI-powered filters - Powered by Beforest",
 };
 
 export default function RootLayout({
