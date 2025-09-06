@@ -347,6 +347,16 @@ export function EnhancedSearchInterface() {
     return previewableExtensions.includes(ext || '') && !nonImageExtensions.includes(ext || '');
   };
 
+  const isValidMediaFile = (file: SearchResult) => {
+    const ext = file.extension?.toLowerCase();
+    // Filter out design files that Dropbox incorrectly categorizes as images
+    const excludedExtensions = ['ai', 'eps', 'ps', 'psd', 'sketch', 'fig', 'xd', 'indd', 'dwg', 'dxf'];
+    return !excludedExtensions.includes(ext || '');
+  };
+
+  // Filter results to exclude design files
+  const filteredResults = results.filter(isValidMediaFile);
+
   // Removed file selection functionality
 
   // Show setup instructions if credentials are missing
@@ -448,10 +458,10 @@ export function EnhancedSearchInterface() {
           </form>
 
           {/* View Toggle */}
-          {results.length > 0 && (
+          {filteredResults.length > 0 && (
             <div className="flex justify-between items-center max-w-3xl mx-auto">
               <div className="text-sm text-muted-foreground">
-                {results.length} results found
+                {filteredResults.length} results found
               </div>
               <div className="flex gap-2">
                 <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as ViewMode)}>
@@ -475,7 +485,7 @@ export function EnhancedSearchInterface() {
       </div>
 
       {/* Results - Full Width Section */}
-      {loading && results.length === 0 ? (
+      {loading && filteredResults.length === 0 ? (
         <div className="container mx-auto px-4 max-w-7xl">
           <div className="grid gap-4 max-w-3xl mx-auto">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -490,7 +500,7 @@ export function EnhancedSearchInterface() {
         </div>
       ) : viewMode === 'immersive' ? (
           <ImmersiveMediaGrid 
-            results={results}
+            results={filteredResults}
             onPreview={handlePreview}
             onDownload={handleDownload}
             onThumbnailLoaded={(filePath: string, thumbnailUrl: string) => {
@@ -499,7 +509,7 @@ export function EnhancedSearchInterface() {
           />
         ) : viewMode === 'grid' ? (
           <MediaGrid 
-            results={results}
+            results={filteredResults}
             onPreview={handlePreview}
             onDownload={handleDownload}
             onThumbnailLoaded={(filePath: string, thumbnailUrl: string) => {
@@ -509,7 +519,7 @@ export function EnhancedSearchInterface() {
         ) : viewMode === 'cards' ? (
         <div className="container mx-auto px-4 max-w-7xl">
           <div className="grid gap-4 max-w-3xl mx-auto">
-            {results.map((file) => (
+            {filteredResults.map((file) => (
               <HoverPreview
                 key={file.id}
                 file={file}
@@ -580,7 +590,7 @@ export function EnhancedSearchInterface() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {results.map((file) => (
+                  {filteredResults.map((file) => (
                     <TableRow key={file.id}>
                       <TableCell>
                         <div className="flex items-center gap-3">
@@ -632,7 +642,7 @@ export function EnhancedSearchInterface() {
         )}
 
       {/* Empty State - Only show when not in grid/immersive view since those components have their own empty state */}
-      {results.length === 0 && !loading && viewMode !== 'grid' && viewMode !== 'immersive' && (
+      {filteredResults.length === 0 && !loading && viewMode !== 'grid' && viewMode !== 'immersive' && (
         <div className="container mx-auto px-4 max-w-7xl">
           <div className="text-center py-12">
             <Search className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
@@ -658,7 +668,7 @@ export function EnhancedSearchInterface() {
         </div>
         )}
 
-      {loading && results.length > 0 && (
+      {loading && filteredResults.length > 0 && (
         <div className="container mx-auto px-4 max-w-7xl">
           <div className="mt-4 text-center">
             <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
