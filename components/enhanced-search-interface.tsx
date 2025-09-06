@@ -201,7 +201,8 @@ export function EnhancedSearchInterface() {
       toast.success(`Found ${matches.length} results`);
     } catch (error: unknown) {
       console.error('Search failed:', error);
-      toast.error(error.message || 'Search failed. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Search failed. Please try again.';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

@@ -21,7 +21,8 @@ export async function GET(request: NextRequest) {
     console.error('Thumbnail API error:', error);
     
     // Handle specific error types
-    if (error.message?.includes('MISSING_CREDENTIALS')) {
+    const errorMessage = error instanceof Error ? error.message : '';
+    if (errorMessage.includes('MISSING_CREDENTIALS')) {
       return NextResponse.json(
         { 
           error: 'MISSING_CREDENTIALS',

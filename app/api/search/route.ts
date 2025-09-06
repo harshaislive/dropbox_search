@@ -72,7 +72,8 @@ export async function GET(request: NextRequest) {
     console.error('Search API error:', error);
     
     // Handle specific error types
-    if (error.message?.includes('MISSING_CREDENTIALS')) {
+    const errorMessage = error instanceof Error ? error.message : '';
+    if (errorMessage.includes('MISSING_CREDENTIALS')) {
       return NextResponse.json(
         { 
           error: 'MISSING_CREDENTIALS',
@@ -82,7 +83,7 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    if (error.message?.includes('INVALID_CREDENTIALS')) {
+    if (errorMessage.includes('INVALID_CREDENTIALS')) {
       return NextResponse.json(
         { 
           error: 'INVALID_CREDENTIALS',
