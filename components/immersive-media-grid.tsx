@@ -271,33 +271,9 @@ export function ImmersiveMediaGrid({
   }
 
   return (
-    <div className="w-full">
-      {/* Immersive Full-Width Masonry Grid - Dynamic Width Columns */}
-      <div 
-        className="w-full gap-0 mobile-masonry"
-        style={{
-          columnCount: 'auto',
-          columnWidth: '100%',
-          columnGap: '0px'
-        }}
-      >
-        <style jsx>{`
-          @media (min-width: 640px) {
-            .mobile-masonry {
-              column-width: 280px !important;
-            }
-          }
-          @media (min-width: 768px) {
-            .mobile-masonry {
-              column-width: 300px !important;
-            }
-          }
-          @media (min-width: 1024px) {
-            .mobile-masonry {
-              column-width: 280px !important;
-            }
-          }
-        `}</style>
+    <div className="w-full px-2 md:px-4">
+      {/* Uniform Square Grid Layout */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1 md:gap-2">
         {results.map((file) => {
           const thumbnail = thumbnails[file.id];
           const isMediaFile = isImage(file.extension) || isVideo(file.extension);
@@ -307,19 +283,19 @@ export function ImmersiveMediaGrid({
           return (
             <div
               key={file.id}
-              className="relative group cursor-pointer break-inside-avoid mb-0 overflow-hidden transition-all duration-300"
+              className="relative group cursor-pointer aspect-square overflow-hidden rounded-sm bg-muted/30 transition-all duration-300 hover:shadow-lg"
               onMouseEnter={() => setHoveredItem(file.id)}
               onMouseLeave={() => setHoveredItem(null)}
               onTouchStart={() => setHoveredItem(file.id)}
               onClick={() => !file.isFolder && onPreview(file)}
             >
               {/* Main Image/Content */}
-              <div className="relative w-full bg-muted/30">
+              <div className="relative w-full h-full">
                 {isMediaFile && thumbnail?.url && !thumbnail.error ? (
                   <img 
                     src={thumbnail.url} 
                     alt={file.name}
-                    className="w-full h-auto object-cover transition-all duration-500 group-hover:brightness-75"
+                    className="w-full h-full object-cover transition-all duration-500 group-hover:brightness-75"
                     onError={() => {
                       setThumbnails(prev => ({
                         ...prev,
@@ -386,11 +362,11 @@ export function ImmersiveMediaGrid({
                   isHovered ? 'opacity-100' : 'opacity-0'
                 }`}>
                   {/* File Title */}
-                  <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
-                    <h3 className="font-semibold text-lg mb-1 line-clamp-2 leading-tight">
+                  <div className="absolute bottom-0 left-0 right-0 p-2 md:p-3 text-white">
+                    <h3 className="font-semibold text-xs md:text-sm mb-1 line-clamp-1 leading-tight">
                       {file.name}
                     </h3>
-                    <div className="flex items-center gap-3 text-sm opacity-90">
+                    <div className="flex items-center gap-1 md:gap-2 text-xs opacity-90">
                       {file.size && (
                         <span className="flex items-center gap-1">
                           <HardDrive className="w-3 h-3" />
@@ -405,31 +381,31 @@ export function ImmersiveMediaGrid({
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="absolute top-4 right-4 flex gap-2">
+                  <div className="absolute top-2 right-2 flex gap-1">
                     {!file.isFolder && (isImage(file.extension) || isVideo(file.extension)) && (
                       <Button
                         size="sm"
                         variant="secondary"
-                        className="h-10 w-10 p-0 bg-white/20 backdrop-blur-sm hover:bg-white/30 border-white/20 text-white hover:text-white"
+                        className="h-7 w-7 md:h-8 md:w-8 p-0 bg-white/20 backdrop-blur-sm hover:bg-white/30 border-white/20 text-white hover:text-white"
                         onClick={(e) => {
                           e.stopPropagation();
                           onPreview(file);
                         }}
                       >
-                        <Eye className="w-4 h-4" />
+                        <Eye className="w-3 h-3 md:w-4 md:h-4" />
                       </Button>
                     )}
                     {!file.isFolder && (
                       <Button
                         size="sm"
                         variant="secondary"
-                        className="h-10 w-10 p-0 bg-white/20 backdrop-blur-sm hover:bg-white/30 border-white/20 text-white hover:text-white"
+                        className="h-7 w-7 md:h-8 md:w-8 p-0 bg-white/20 backdrop-blur-sm hover:bg-white/30 border-white/20 text-white hover:text-white"
                         onClick={(e) => {
                           e.stopPropagation();
                           onDownload(file);
                         }}
                       >
-                        <Download className="w-4 h-4" />
+                        <Download className="w-3 h-3 md:w-4 md:h-4" />
                       </Button>
                     )}
                   </div>
