@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (error.message?.includes('INVALID_SEARCH_PARAMS')) {
+    if (errorMessage.includes('INVALID_SEARCH_PARAMS')) {
       return NextResponse.json(
         { 
           error: 'INVALID_SEARCH_PARAMS',
