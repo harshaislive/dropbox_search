@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform the results to a cleaner format
-    const matches = results.result.matches?.map((match: any, index: number) => {
+    const matches = results.result.matches?.map((match: Record<string, any>, index: number) => {
       const metadata = match.metadata?.metadata || match.metadata;
       if (!metadata) return null;
       
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
     };
 
     return NextResponse.json(transformedResults);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Search API error:', error);
     
     // Handle specific error types

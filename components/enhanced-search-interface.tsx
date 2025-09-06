@@ -199,7 +199,7 @@ export function EnhancedSearchInterface() {
       setHasMore(searchResults.hasMore || false);
       
       toast.success(`Found ${matches.length} results`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Search failed:', error);
       toast.error(error.message || 'Search failed. Please try again.');
     } finally {
@@ -746,7 +746,7 @@ export function EnhancedSearchInterface() {
                         Your browser does not support the video tag.
                       </video>
                       <p className="text-xs text-muted-foreground text-center">
-                        If video doesn't play, try downloading it instead. Some video formats may not be supported in browser preview.
+                        If video doesn&apos;t play, try downloading it instead. Some video formats may not be supported in browser preview.
                       </p>
                     </div>
                   ) : null}

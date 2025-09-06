@@ -41,9 +41,10 @@ class DropboxClient {
       this.tokenExpiry = new Date(Date.now() + response.data.expires_in * 1000);
       
       return this.accessToken;
-    } catch (error: any) {
-      console.error('Error refreshing access token:', error.response?.data || error.message);
-      if (error.response?.status === 400) {
+    } catch (error: unknown) {
+      const err = error as any;
+      console.error('Error refreshing access token:', err.response?.data || err.message);
+      if (err.response?.status === 400) {
         throw new Error('INVALID_CREDENTIALS: Invalid refresh token or app credentials. Please check your Dropbox app configuration.');
       }
       throw new Error('NETWORK_ERROR: Failed to connect to Dropbox API. Please check your internet connection.');

@@ -9,10 +9,7 @@ const nextConfig: NextConfig = {
     }
     return config;
   },
-  experimental: {
-    // Enable server components features
-    serverComponentsExternalPackages: ['dropbox', 'node-fetch'],
-  },
+  serverExternalPackages: ['dropbox', 'node-fetch'],
 };
 
 export default nextConfig;

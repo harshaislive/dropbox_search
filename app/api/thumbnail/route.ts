@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const thumbnailUrl = await dropboxClient.getThumbnail(path, size || 'w256h256');
     
     return NextResponse.json({ thumbnailUrl });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Thumbnail API error:', error);
     
     // Handle specific error types

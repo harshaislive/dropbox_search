@@ -68,11 +68,11 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000`;
                 <p className="font-medium">Steps:</p>
                 <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground ml-4">
                   <li>Go to the Dropbox App Console</li>
-                  <li>Click "Create app"</li>
-                  <li>Choose "Scoped access"</li>
-                  <li>Choose "Full Dropbox" access</li>
-                  <li>Give your app a name (e.g., "My Search App")</li>
-                  <li>Click "Create app"</li>
+                  <li>Click &quot;Create app&quot;</li>
+                  <li>Choose &quot;Scoped access&quot;</li>
+                  <li>Choose &quot;Full Dropbox&quot; access</li>
+                  <li>Give your app a name (e.g., &quot;My Search App&quot;)</li>
+                  <li>Click &quot;Create app&quot;</li>
                 </ol>
               </div>
               <Button asChild variant="outline" className="w-full sm:w-auto">
@@ -112,7 +112,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000`;
               </div>
               <div className="bg-muted p-3 rounded-lg">
                 <p className="text-sm">
-                  💡 <strong>Tip:</strong> Make sure to enable these permissions in the "Permissions" tab of your app settings.
+                  💡 <strong>Tip:</strong> Make sure to enable these permissions in the &quot;Permissions&quot; tab of your app settings.
                 </p>
               </div>
             </CardContent>
@@ -134,12 +134,12 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000`;
                 <div className="flex items-center gap-2">
                   <Key className="w-4 h-4" />
                   <span className="font-medium">App Key:</span>
-                  <span className="text-muted-foreground">Found in the "Settings" tab</span>
+                  <span className="text-muted-foreground">Found in the &quot;Settings&quot; tab</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Key className="w-4 h-4" />
                   <span className="font-medium">App Secret:</span>
-                  <span className="text-muted-foreground">Click "Show" to reveal</span>
+                  <span className="text-muted-foreground">Click &quot;Show&quot; to reveal</span>
                 </div>
               </div>
             </CardContent>
@@ -174,7 +174,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000`;
               </ol>
               <div className="bg-yellow-50 dark:bg-yellow-950 p-3 rounded-lg">
                 <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                  ⚠️ <strong>Advanced:</strong> You'll need to make a POST request to exchange the auth code for a refresh token. Consider using the Dropbox SDK documentation for detailed steps.
+                  ⚠️ <strong>Advanced:</strong> You&apos;ll need to make a POST request to exchange the auth code for a refresh token. Consider using the Dropbox SDK documentation for detailed steps.
                 </p>
               </div>
             </CardContent>
@@ -227,7 +227,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000`;
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground mb-4">
-                Once you've completed all steps above, restart your development server and refresh this page to start searching your Dropbox files.
+                Once you&apos;ve completed all steps above, restart your development server and refresh this page to start searching your Dropbox files.
               </p>
               <Button onClick={() => window.location.reload()} className="w-full sm:w-auto">
                 Refresh Page
