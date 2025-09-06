@@ -283,7 +283,7 @@ export function ImmersiveMediaGrid({
           return (
             <div
               key={file.id}
-              className="relative group cursor-pointer aspect-square overflow-hidden rounded-sm bg-muted/30 transition-all duration-300 hover:shadow-lg"
+              className="relative group cursor-pointer aspect-square overflow-hidden bg-muted/30 transition-all duration-300 hover:shadow-lg"
               onMouseEnter={() => setHoveredItem(file.id)}
               onMouseLeave={() => setHoveredItem(null)}
               onTouchStart={() => setHoveredItem(file.id)}
