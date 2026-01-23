@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { 
-  Search, Loader2, FileText, Image, Video, Folder, File, 
+import { useRouter } from 'next/navigation';
+import {
+  Search, Loader2, FileText, Image, Video, Folder, File,
   Download, Eye, Grid3x3, List, Filter, Clock, ArrowUpDown,
-  CheckCircle2, XCircle, AlertCircle, LayoutGrid, Rows3
+  CheckCircle2, XCircle, AlertCircle, LayoutGrid, Rows3, LogOut
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -72,6 +73,7 @@ type ViewMode = 'cards' | 'grid' | 'immersive' | 'table';
 type FileType = 'image' | 'video';
 
 export function EnhancedSearchInterface() {
+  const router = useRouter();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -338,6 +340,18 @@ export function EnhancedSearchInterface() {
 
   // Removed bulk download - individual downloads provide better UX
 
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      router.push('/login');
+      router.refresh();
+    } catch (error) {
+      console.error('Logout failed:', error);
+      // Even if API call fails, redirect to login
+      router.push('/login');
+    }
+  };
+
   const isPreviewable = (file: SearchResult) => {
     const ext = file.extension?.toLowerCase();
     // Exclude non-image files that might be misclassified as images
@@ -369,10 +383,21 @@ export function EnhancedSearchInterface() {
       {/* Header and Search - Constrained Container */}
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Header */}
-        <div className="mb-6 md:mb-8 text-center">
+        <div className="mb-6 md:mb-8 text-center relative">
+          {/* Logout button - top right */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            className="absolute top-0 right-0 text-muted-foreground hover:text-foreground hover:bg-muted"
+            title="Logout"
+          >
+            <LogOut className="w-4 h-4" />
+          </Button>
+
           <div className="flex items-center justify-center gap-3 md:gap-4 mb-3 md:mb-4">
-            <img 
-              src="https://beforest.co/wp-content/uploads/2024/10/23-Beforest-Black-with-Tagline.png" 
+            <img
+              src="https://beforest.co/wp-content/uploads/2024/10/23-Beforest-Black-with-Tagline.png"
               alt="Beforest Logo"
               className="h-8 md:h-12 w-auto object-contain"
             />
