@@ -784,85 +784,87 @@ export function MediaLibrary() {
       </Dialog>
 
       <Dialog open={!!selectedFile} onOpenChange={() => setSelectedFile(null)}>
-        <DialogContent className="max-h-[92vh] max-w-5xl overflow-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {selectedFile && fileIcon(selectedFile)}
-              {selectedFile?.name}
-            </DialogTitle>
-            <DialogDescription>{selectedFile?.path}</DialogDescription>
-          </DialogHeader>
-
+        <DialogContent className="max-h-[94vh] max-w-[min(96vw,1320px)] overflow-hidden border-[#d8c9ae] bg-[#17130f] p-0 text-[#fdfbf7]">
           {selectedFile && (
-            <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
-              <div className="rounded-lg bg-muted">
+            <div className="grid max-h-[94vh] lg:grid-cols-[minmax(0,1fr)_360px]">
+              <div className="relative flex min-h-[58vh] items-center justify-center bg-[#17130f] p-4 lg:min-h-[86vh] lg:p-8">
                 {detailLoading && !previewUrl ? (
-                  <div className="flex aspect-video items-center justify-center">
+                  <div className="flex aspect-video items-center justify-center text-[#fdfbf7]/70">
                     <Loader2 className="animate-spin" />
                   </div>
                 ) : previewUrl && selectedFile.extension && previewImageExtensions.has(selectedFile.extension.toLowerCase()) ? (
-                  <img src={previewUrl} alt={selectedFile.name} className="max-h-[70vh] w-full rounded-lg object-contain" />
+                  <img
+                    src={previewUrl}
+                    alt={selectedFile.name}
+                    className="max-h-[82vh] w-full object-contain shadow-[0_28px_90px_rgba(0,0,0,0.38)]"
+                  />
                 ) : previewUrl && selectedFile.extension && videoExtensions.has(selectedFile.extension.toLowerCase()) ? (
-                  <video src={previewUrl} controls className="max-h-[70vh] w-full rounded-lg" />
+                  <video src={previewUrl} controls className="max-h-[82vh] w-full" />
                 ) : (
-                  <div className="flex aspect-video items-center justify-center">
+                  <div className="flex aspect-video items-center justify-center text-[#fdfbf7]/70">
                     {fileIcon(selectedFile, 'size-12')}
                   </div>
                 )}
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/45 to-transparent lg:hidden" />
               </div>
 
-              <div className="flex flex-col gap-4">
-                <div className="flex gap-2">
-                  <Button type="button" size="sm" onClick={() => addToCollection(selectedFile)}>
+              <aside className="flex max-h-[94vh] flex-col overflow-auto border-l border-[#d8c9ae] bg-[#fdfbf7] p-6 text-[#342e29]">
+                <DialogHeader className="gap-3 text-left">
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-[#86312b]">Asset Review</div>
+                  <DialogTitle className="text-3xl font-light leading-none text-[#342e29]">
+                    {selectedFile.name}
+                  </DialogTitle>
+                  <DialogDescription className="break-words text-sm leading-relaxed text-[#342e29]/62">
+                    {selectedFile.path}
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-[#d8c9ae] bg-[#d8c9ae] text-sm">
+                  <div className="bg-[#fffdf9] p-3">
+                    <div className="text-[#342e29]/52">Type</div>
+                    <div className="mt-1 uppercase">{metadata?.extension || selectedFile.extension || selectedFile.tag}</div>
+                  </div>
+                  <div className="bg-[#fffdf9] p-3">
+                    <div className="text-[#342e29]/52">Size</div>
+                    <div className="mt-1">{formatFileSize(metadata?.size || selectedFile.size)}</div>
+                  </div>
+                  <div className="bg-[#fffdf9] p-3">
+                    <div className="text-[#342e29]/52">Modified</div>
+                    <div className="mt-1">{formatDate(metadata?.serverModified || selectedFile.serverModified || selectedFile.modified)}</div>
+                  </div>
+                  <div className="bg-[#fffdf9] p-3">
+                    <div className="text-[#342e29]/52">Dimensions</div>
+                    <div className="mt-1">
+                      {(metadata?.dimensions || selectedFile.dimensions)
+                        ? `${(metadata?.dimensions || selectedFile.dimensions)?.width} x ${(metadata?.dimensions || selectedFile.dimensions)?.height}`
+                        : 'Unknown'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-2">
+                  <Button type="button" onClick={() => addToCollection(selectedFile)} className="h-11 justify-start">
                     <Plus />
-                    Shortlist
+                    Add to shortlist
                   </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => downloadFile(selectedFile)}>
-                    <Download />
-                    Download
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => openDropboxLink(selectedFile)}>
-                    <ExternalLink />
-                  </Button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button type="button" variant="outline" onClick={() => downloadFile(selectedFile)} className="justify-start">
+                      <Download />
+                      Download
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => openDropboxLink(selectedFile)} className="justify-start">
+                      <ExternalLink />
+                      Dropbox
+                    </Button>
+                  </div>
                 </div>
 
-                <Separator />
-
-                <div className="grid gap-2 text-sm">
-                  <div className="flex justify-between gap-3">
-                    <span className="text-muted-foreground">Size</span>
-                    <span>{formatFileSize(metadata?.size || selectedFile.size)}</span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-muted-foreground">Modified</span>
-                    <span>{formatDate(metadata?.serverModified || selectedFile.serverModified || selectedFile.modified)}</span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-muted-foreground">Type</span>
-                    <span>{metadata?.extension || selectedFile.extension || selectedFile.tag}</span>
-                  </div>
-                  {(metadata?.dimensions || selectedFile.dimensions) && (
-                    <div className="flex justify-between gap-3">
-                      <span className="text-muted-foreground">Dimensions</span>
-                      <span>
-                        {(metadata?.dimensions || selectedFile.dimensions)?.width} x {(metadata?.dimensions || selectedFile.dimensions)?.height}
-                      </span>
-                    </div>
-                  )}
-                  {(metadata?.contentHash || selectedFile.contentHash) && (
-                    <div className="flex flex-col gap-1">
-                      <span className="text-muted-foreground">Content hash</span>
-                      <code className="break-all rounded-md bg-muted px-2 py-1 text-xs">{metadata?.contentHash || selectedFile.contentHash}</code>
-                    </div>
-                  )}
-                </div>
-
-                <Separator />
+                <Separator className="my-5 bg-[#d8c9ae]" />
 
                 <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2 text-sm font-medium">
+                  <div className="flex items-center gap-2 text-sm font-medium text-[#342e29]">
                     <Tag />
-                    Local tags
+                    Review tags
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {(tagsByPath[selectedFile.path] || []).map(tag => (
@@ -874,7 +876,16 @@ export function MediaLibrary() {
                     <Button type="button" size="sm" onClick={addTag}>Add</Button>
                   </div>
                 </div>
-              </div>
+
+                {(metadata?.contentHash || selectedFile.contentHash) && (
+                  <details className="mt-5 rounded-md border border-[#d8c9ae] bg-[#fffdf9] p-3 text-sm">
+                    <summary className="cursor-pointer text-[#342e29]/70">Technical details</summary>
+                    <code className="mt-3 block break-all rounded-sm bg-[#f4eee4] p-2 text-xs text-[#342e29]/75">
+                      {metadata?.contentHash || selectedFile.contentHash}
+                    </code>
+                  </details>
+                )}
+              </aside>
             </div>
           )}
         </DialogContent>
