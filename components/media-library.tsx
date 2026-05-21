@@ -4,7 +4,6 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 're
 import { useRouter } from 'next/navigation';
 import {
   Archive,
-  CalendarDays,
   Download,
   ExternalLink,
   File,
@@ -16,6 +15,7 @@ import {
   LogOut,
   Plus,
   Search,
+  SlidersHorizontal,
   Tag,
   Video,
 } from 'lucide-react';
@@ -154,6 +154,7 @@ export function MediaLibrary() {
   const [orderBy, setOrderBy] = useState<'relevance' | 'last_modified_time'>('relevance');
   const [filenameOnly, setFilenameOnly] = useState(false);
   const [datePreset, setDatePreset] = useState<'any' | '7d' | '30d' | '90d'>('any');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [folderEntries, setFolderEntries] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -447,135 +448,162 @@ export function MediaLibrary() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b bg-[#fdfbf7]/95">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-3">
+    <div className="min-h-screen bg-[#fdfbf7] text-[#342e29]">
+      <header className="sticky top-0 z-30 border-b border-[#d8c9ae] bg-[#fdfbf7]/95 backdrop-blur-md">
+        <div className="grid gap-3 px-4 py-3 lg:grid-cols-[180px_minmax(320px,1fr)_auto] lg:items-center lg:px-7">
+          <div className="flex items-center justify-between gap-3">
             <img
               src="https://beforest.co/wp-content/uploads/2024/10/23-Beforest-Black-with-Tagline.png"
               alt="Beforest"
               className="h-9 w-auto object-contain"
             />
-            <div>
-              <h1 className="text-2xl font-light leading-none">Media Library</h1>
-              <p className="text-sm italic text-muted-foreground">Search, shortlist, and return to the right asset.</p>
-            </div>
+            <Button className="lg:hidden" variant="outline" size="icon" onClick={() => setFiltersOpen(true)}>
+              <SlidersHorizontal />
+            </Button>
           </div>
-          <Button variant="outline" size="sm" onClick={logout}>
-            <LogOut />
-            Logout
-          </Button>
+
+          <form onSubmit={handleSearch} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_120px_auto]">
+            <div className="relative min-w-0">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#342e29]/55" />
+              <Input
+                value={query}
+                onChange={event => setQuery(event.target.value)}
+                placeholder="Search Dropbox assets"
+                className="h-11 border-[#d8c9ae] bg-[#fffdf9] pl-9 text-base"
+              />
+            </div>
+            <select
+              value={category}
+              onChange={event => setCategory(event.target.value as FileCategory)}
+              className="h-11 rounded-md border border-[#d8c9ae] bg-[#fffdf9] px-3 text-sm"
+            >
+              {categoryOptions.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+            <Button type="submit" disabled={loading} className="h-11">
+              {loading ? <Loader2 className="animate-spin" /> : <Search />}
+              Search
+            </Button>
+          </form>
+
+          <div className="hidden items-center justify-end gap-2 lg:flex">
+            <Button variant="outline" onClick={() => setFiltersOpen(true)}>
+              <SlidersHorizontal />
+              Filters / Library
+            </Button>
+            <Button variant="ghost" size="icon" onClick={logout}>
+              <LogOut />
+            </Button>
+          </div>
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-7xl gap-4 px-4 py-4 lg:grid-cols-[280px_1fr_300px]">
-        <aside className="flex flex-col gap-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Folder />
-                Folder Scope
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              <div className="flex flex-wrap gap-1">
-                {breadcrumb.map(crumb => (
-                  <Button
-                    key={crumb.path || 'root'}
-                    type="button"
-                    variant={crumb.path === folderPath ? 'secondary' : 'ghost'}
-                    size="sm"
-                    onClick={() => setFolderPath(crumb.path)}
-                    className="h-7 px-2"
-                  >
-                    {crumb.label}
-                  </Button>
-                ))}
-              </div>
-              <ScrollArea className="h-[320px] rounded-md border">
-                <div className="flex flex-col p-2">
-                  {folderLoading ? (
-                    Array.from({ length: 8 }).map((_, index) => (
-                      <Skeleton key={index} className="mb-2 h-8" />
-                    ))
-                  ) : folderEntries.filter(entry => entry.isFolder).length ? (
-                    folderEntries.filter(entry => entry.isFolder).map(folder => (
-                      <button
-                        key={folder.path}
-                        type="button"
-                        onClick={() => setFolderPath(folder.path)}
-                        className="flex items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-muted"
-                      >
-                        <Folder className="shrink-0" />
-                        <span className="truncate">{folder.name}</span>
-                      </button>
-                    ))
-                  ) : (
-                    <p className="p-3 text-sm text-muted-foreground">No folders here.</p>
-                  )}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
+      <section className="flex items-center justify-between gap-4 overflow-hidden border-b border-[#d8c9ae] bg-[#fdfbf7] px-4 py-3 lg:px-7">
+        <div className="flex gap-2 overflow-x-auto [scrollbar-width:none]">
+          {quickSearches.map(searchTerm => (
+            <button
+              key={searchTerm}
+              type="button"
+              onClick={() => {
+                setQuery(searchTerm);
+                runSearch(null, searchTerm);
+              }}
+              className="whitespace-nowrap rounded-full border border-[#d8c9ae] bg-[#fffdf9] px-3 py-1.5 text-sm text-[#342e29] transition-colors hover:border-[#86312b] hover:text-[#86312b]"
+            >
+              {searchTerm}
+            </button>
+          ))}
+        </div>
+        <div className="hidden whitespace-nowrap text-sm text-[#342e29]/65 md:block">
+          {results.length ? `${results.length} visible assets` : 'Full-width media wall'}
+          {folderPath ? ` · ${folderPath}` : ''}
+        </div>
+      </section>
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Archive />
-                Collections
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              <div className="flex gap-2">
-                <Input
-                  value={newCollectionName}
-                  onChange={event => setNewCollectionName(event.target.value)}
-                  placeholder="New collection"
-                />
-                <Button type="button" size="icon" onClick={createCollection}>
-                  <Plus />
-                </Button>
-              </div>
-              <div className="flex flex-col gap-1">
-                {collections.map(collection => (
-                  <button
-                    key={collection.id}
-                    type="button"
-                    onClick={() => setActiveCollectionId(collection.id)}
-                    className={cn(
-                      'flex items-center justify-between rounded-md px-2 py-2 text-sm hover:bg-muted',
-                      collection.id === activeCollectionId && 'bg-muted'
-                    )}
-                  >
-                    <span className="truncate">{collection.name}</span>
-                    <Badge variant="secondary">{collection.items.length}</Badge>
-                  </button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </aside>
-
-        <section className="flex min-w-0 flex-col gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <form onSubmit={handleSearch} className="flex flex-col gap-3">
-                <div className="flex flex-col gap-2 md:flex-row">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      value={query}
-                      onChange={event => setQuery(event.target.value)}
-                      placeholder="Search Dropbox assets"
-                      className="pl-9"
+      <main>
+        {loading && !results.length ? (
+          <div className="grid grid-cols-2 gap-0 bg-[#342e29] sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
+            {Array.from({ length: 18 }).map((_, index) => (
+              <Skeleton key={index} className="aspect-square rounded-none bg-[#d8c9ae]/35" />
+            ))}
+          </div>
+        ) : results.length ? (
+          <div className="grid grid-cols-2 gap-0 bg-[#342e29] sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
+            {results.map(file => (
+              <article
+                key={`${file.id}-${file.path}`}
+                className="group relative aspect-square overflow-hidden border-b border-r border-[#fdfbf7]/15 bg-[#344736]"
+              >
+                <button type="button" onClick={() => openDetails(file)} className="block h-full w-full text-left">
+                  {thumbnails[file.path] ? (
+                    <img
+                      src={thumbnails[file.path]}
+                      alt={file.name}
+                      className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.045] group-hover:saturate-90"
                     />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-[#fdfbf7]">
+                      {fileIcon(file, 'size-10')}
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                  <div className="absolute inset-x-3 bottom-3 translate-y-2 text-[#fdfbf7] opacity-0 transition duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+                    <div className="truncate text-base leading-tight">{file.name}</div>
+                    <div className="mt-1 flex items-center gap-2 text-xs text-[#fdfbf7]/72">
+                      {file.extension && <span>{file.extension.toUpperCase()}</span>}
+                      <span>{formatFileSize(file.size)}</span>
+                      <span>{formatDate(file.serverModified || file.modified)}</span>
+                    </div>
                   </div>
-                  <Button type="submit" disabled={loading}>
-                    {loading ? <Loader2 className="animate-spin" /> : <Search />}
-                    Search
+                </button>
+                <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                  <Button type="button" size="icon" variant="outline" className="h-8 w-8 bg-[#fdfbf7]/90" onClick={() => addToCollection(file)}>
+                    <Plus />
+                  </Button>
+                  <Button type="button" size="icon" variant="outline" className="h-8 w-8 bg-[#fdfbf7]/90" onClick={() => downloadFile(file)}>
+                    <Download />
+                  </Button>
+                  <Button type="button" size="icon" variant="outline" className="h-8 w-8 bg-[#fdfbf7]/90" onClick={() => openDropboxLink(file)}>
+                    <ExternalLink />
                   </Button>
                 </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <section className="flex min-h-[62vh] items-center justify-center px-6 text-center">
+            <div className="max-w-xl">
+              <Search className="mx-auto mb-4 size-8 text-[#86312b]" />
+              <h1 className="text-4xl font-light leading-tight">Search the Beforest media archive.</h1>
+              <p className="mt-3 text-[#342e29]/68">
+                Keep the screen clean for images. Folder scope, dates, extensions, and collections are in Filters / Library.
+              </p>
+            </div>
+          </section>
+        )}
 
+        <div ref={loadMoreRef} className="flex min-h-20 items-center justify-center border-t border-[#d8c9ae] text-sm text-[#342e29]/60">
+          {loading && results.length ? 'Loading more assets...' : hasMore ? 'More assets load automatically as you scroll.' : results.length ? 'End of current result set.' : ''}
+        </div>
+      </main>
+
+      <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <DialogContent className="max-h-[92vh] max-w-5xl overflow-auto bg-[#fdfbf7]">
+          <DialogHeader>
+            <DialogTitle>Filters / Library</DialogTitle>
+            <DialogDescription>Keep the media wall full bleed, and use this panel when you need precision.</DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <SlidersHorizontal />
+                  Advanced Search
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-3">
                 <div className="flex flex-wrap gap-2">
                   {categoryOptions.map(option => (
                     <Button
@@ -589,17 +617,16 @@ export function MediaLibrary() {
                     </Button>
                   ))}
                 </div>
-
-                <div className="grid gap-2 md:grid-cols-[1fr_160px_180px_150px]">
-                  <Input
-                    value={extensions}
-                    onChange={event => setExtensions(event.target.value)}
-                    placeholder="Extensions: jpg,png,mp4"
-                  />
+                <Input
+                  value={extensions}
+                  onChange={event => setExtensions(event.target.value)}
+                  placeholder="Extensions: jpg,png,mp4"
+                />
+                <div className="grid gap-2 sm:grid-cols-2">
                   <select
                     value={orderBy}
                     onChange={event => setOrderBy(event.target.value as 'relevance' | 'last_modified_time')}
-                    className="h-9 rounded-md border bg-[#fffdf9] px-3 text-sm"
+                    className="h-9 rounded-md border border-[#d8c9ae] bg-[#fffdf9] px-3 text-sm"
                   >
                     <option value="relevance">Relevance</option>
                     <option value="last_modified_time">Newest first</option>
@@ -607,182 +634,144 @@ export function MediaLibrary() {
                   <select
                     value={datePreset}
                     onChange={event => setDatePreset(event.target.value as 'any' | '7d' | '30d' | '90d')}
-                    className="h-9 rounded-md border bg-[#fffdf9] px-3 text-sm"
+                    className="h-9 rounded-md border border-[#d8c9ae] bg-[#fffdf9] px-3 text-sm"
                   >
                     <option value="any">Any date</option>
                     <option value="7d">Last 7 days</option>
                     <option value="30d">Last 30 days</option>
                     <option value="90d">Last 90 days</option>
                   </select>
-                  <Button
-                    type="button"
-                    variant={filenameOnly ? 'secondary' : 'outline'}
-                    size="sm"
-                    onClick={() => setFilenameOnly(value => !value)}
-                  >
-                    Filename only
-                  </Button>
                 </div>
+                <Button
+                  type="button"
+                  variant={filenameOnly ? 'secondary' : 'outline'}
+                  onClick={() => setFilenameOnly(value => !value)}
+                >
+                  Filename only
+                </Button>
+                <Button type="button" onClick={() => runSearch()}>
+                  Apply filters
+                </Button>
+              </CardContent>
+            </Card>
 
-                <div className="flex flex-wrap gap-2">
-                  {quickSearches.map(searchTerm => (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Folder />
+                  Folder Scope
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                <div className="flex flex-wrap gap-1">
+                  {breadcrumb.map(crumb => (
                     <Button
-                      key={searchTerm}
+                      key={crumb.path || 'root'}
                       type="button"
-                      variant="ghost"
+                      variant={crumb.path === folderPath ? 'secondary' : 'ghost'}
                       size="sm"
-                      onClick={() => {
-                        setQuery(searchTerm);
-                        runSearch(null, searchTerm);
-                      }}
+                      onClick={() => setFolderPath(crumb.path)}
+                      className="h-7 px-2"
                     >
-                      {searchTerm}
+                      {crumb.label}
                     </Button>
                   ))}
                 </div>
-              </form>
-            </CardContent>
-          </Card>
-
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
-              {results.length ? `${results.length} result${results.length === 1 ? '' : 's'}` : 'Search results'}
-              {folderPath ? ` in ${folderPath}` : ''}
-            </div>
-            {hasMore && (
-              <Button variant="outline" size="sm" onClick={() => runSearch(cursor)} disabled={loading}>
-                Load more
-              </Button>
-            )}
-          </div>
-
-          {loading && !results.length ? (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {Array.from({ length: 9 }).map((_, index) => (
-                <Skeleton key={index} className="h-64 rounded-lg" />
-              ))}
-            </div>
-          ) : results.length ? (
-            <div className="grid gap-0 sm:grid-cols-2 xl:grid-cols-3">
-              {results.map(file => (
-                <Card key={`${file.id}-${file.path}`} className="overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => openDetails(file)}
-                    className="block w-full text-left"
-                  >
-                    <div className="aspect-square bg-muted">
-                      {thumbnails[file.path] ? (
-                        <img
-                          src={thumbnails[file.path]}
-                          alt={file.name}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center">
-                          {fileIcon(file, 'size-10')}
-                        </div>
-                      )}
-                    </div>
-                    <CardContent className="flex flex-col gap-2 p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <h3 className="truncate text-sm font-medium">{file.name}</h3>
-                          <p className="truncate text-xs text-muted-foreground">{file.path}</p>
-                        </div>
-                        {file.extension && <Badge variant="outline">{file.extension.toUpperCase()}</Badge>}
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span>{formatFileSize(file.size)}</span>
-                        <span className="flex items-center gap-1">
-                          <CalendarDays />
-                          {formatDate(file.serverModified || file.modified)}
-                        </span>
-                      </div>
-                      {tagsByPath[file.path]?.length ? (
-                        <div className="flex flex-wrap gap-1">
-                          {tagsByPath[file.path].map(tag => (
-                            <Badge key={tag} variant="secondary">{tag}</Badge>
-                          ))}
-                        </div>
-                      ) : null}
-                    </CardContent>
-                  </button>
-                  <div className="flex gap-2 px-3 pb-3">
-                    <Button type="button" variant="outline" size="sm" onClick={() => addToCollection(file)}>
-                      <Plus />
-                      Shortlist
-                    </Button>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => downloadFile(file)}>
-                      <Download />
-                    </Button>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => openDropboxLink(file)}>
-                      <ExternalLink />
-                    </Button>
+                <ScrollArea className="h-[290px] rounded-md border border-[#d8c9ae]">
+                  <div className="flex flex-col p-2">
+                    {folderLoading ? (
+                      Array.from({ length: 8 }).map((_, index) => (
+                        <Skeleton key={index} className="mb-2 h-8" />
+                      ))
+                    ) : folderEntries.filter(entry => entry.isFolder).length ? (
+                      folderEntries.filter(entry => entry.isFolder).map(folder => (
+                        <button
+                          key={folder.path}
+                          type="button"
+                          onClick={() => setFolderPath(folder.path)}
+                          className="flex items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-muted"
+                        >
+                          <Folder className="shrink-0" />
+                          <span className="truncate">{folder.name}</span>
+                        </button>
+                      ))
+                    ) : (
+                      <p className="p-3 text-sm text-muted-foreground">No folders here.</p>
+                    )}
                   </div>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-                <Search className="text-muted-foreground" />
-                <h2 className="font-medium">Start with a search or pick a folder.</h2>
-                <p className="max-w-md text-sm text-muted-foreground">
-                  Use folder scope, file category, extension, and date filters to cut through Dropbox faster.
-                </p>
+                </ScrollArea>
               </CardContent>
             </Card>
-          )}
-          <div ref={loadMoreRef} className="h-8" />
-        </section>
 
-        <aside className="flex flex-col gap-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">{activeCollection.name}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[360px]">
-                <div className="flex flex-col gap-2">
-                  {activeCollection.items.length ? (
-                    activeCollection.items.map(file => (
-                      <button
-                        key={`${activeCollection.id}-${file.path}`}
-                        type="button"
-                        onClick={() => openDetails(file)}
-                        className="flex items-center gap-2 rounded-md p-2 text-left hover:bg-muted"
-                      >
-                        {fileIcon(file)}
-                        <span className="min-w-0 flex-1 truncate text-sm">{file.name}</span>
-                      </button>
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Shortlisted assets will appear here.</p>
-                  )}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Archive />
+                  Collections
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                <div className="flex gap-2">
+                  <Input
+                    value={newCollectionName}
+                    onChange={event => setNewCollectionName(event.target.value)}
+                    placeholder="New collection"
+                  />
+                  <Button type="button" size="icon" onClick={createCollection}>
+                    <Plus />
+                  </Button>
                 </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
+                <div className="flex flex-col gap-1">
+                  {collections.map(collection => (
+                    <button
+                      key={collection.id}
+                      type="button"
+                      onClick={() => setActiveCollectionId(collection.id)}
+                      className={cn(
+                        'flex items-center justify-between rounded-md px-2 py-2 text-sm hover:bg-muted',
+                        collection.id === activeCollectionId && 'bg-muted'
+                      )}
+                    >
+                      <span className="truncate">{collection.name}</span>
+                      <Badge variant="secondary">{collection.items.length}</Badge>
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Info />
-                API Surface Added
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-2 text-sm text-muted-foreground">
-              <code>/api/folders</code>
-              <code>/api/search</code>
-              <code>/api/thumbnails/batch</code>
-              <code>/api/metadata</code>
-              <code>/api/preview</code>
-              <code>/api/open-link</code>
-            </CardContent>
-          </Card>
-        </aside>
-      </main>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Info />
+                  {activeCollection.name}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[250px]">
+                  <div className="flex flex-col gap-2">
+                    {activeCollection.items.length ? (
+                      activeCollection.items.map(file => (
+                        <button
+                          key={`${activeCollection.id}-${file.path}`}
+                          type="button"
+                          onClick={() => openDetails(file)}
+                          className="flex items-center gap-2 rounded-md p-2 text-left hover:bg-muted"
+                        >
+                          {fileIcon(file)}
+                          <span className="min-w-0 flex-1 truncate text-sm">{file.name}</span>
+                        </button>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Shortlisted assets will appear here.</p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!selectedFile} onOpenChange={() => setSelectedFile(null)}>
         <DialogContent className="max-h-[92vh] max-w-5xl overflow-auto">
