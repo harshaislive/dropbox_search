@@ -17,6 +17,7 @@ import {
   Search,
   SlidersHorizontal,
   Video,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -785,6 +786,15 @@ export function MediaLibrary() {
         <DialogContent className="h-[94vh] max-h-[94vh] w-[96vw] max-w-[1500px] overflow-hidden border-0 bg-[#120f0c] p-0 text-[#fdfbf7]">
           {selectedFile && (
             <div className="relative h-full">
+              <button
+                type="button"
+                onClick={() => setSelectedFile(null)}
+                aria-label="Close preview"
+                className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-[#fdfbf7]/20 bg-black/55 text-[#fdfbf7] backdrop-blur-md transition hover:bg-[#fdfbf7] hover:text-[#342e29] md:right-6 md:top-6"
+              >
+                <X className="h-5 w-5" />
+              </button>
+
               <div className="absolute inset-0 flex items-center justify-center bg-[#120f0c] p-4 md:p-8">
                 {detailLoading && !previewUrl ? (
                   <div className="flex aspect-video items-center justify-center text-[#fdfbf7]/70">
