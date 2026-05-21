@@ -93,7 +93,7 @@ const categoryOptions: Array<{ value: FileCategory; label: string }> = [
   { value: 'others', label: 'Other' },
 ];
 
-const quickSearches = [
+const defaultQuickSearches = [
   'drone',
   'people working',
   'food',
@@ -107,6 +107,99 @@ const quickSearches = [
 const thumbnailExtensions = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'tiff', 'tif', 'bmp', 'ppm']);
 const previewImageExtensions = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'heic', 'heif', 'tiff', 'tif', 'bmp']);
 const videoExtensions = new Set(['mp4', 'mov', 'webm', 'avi', 'mkv']);
+const ignoredQuickFindWords = new Set([
+  'beforest',
+  'resource',
+  'resources',
+  'collective',
+  'collectives',
+  'dropbox',
+  'folder',
+  'folders',
+  'links',
+  'link',
+  'image',
+  'images',
+  'photo',
+  'photos',
+  'video',
+  'videos',
+  'final',
+  'edit',
+  'edited',
+  'copy',
+  'untitled',
+  'whatsapp',
+  'jpg',
+  'jpeg',
+  'png',
+  'webp',
+  'gif',
+  'tif',
+  'tiff',
+  'heic',
+  'heif',
+  'mp4',
+  'mov',
+  'img',
+  'dsc',
+  'pbr',
+  'dji',
+  'jan',
+  'feb',
+  'mar',
+  'apr',
+  'may',
+  'jun',
+  'jul',
+  'aug',
+  'sep',
+  'oct',
+  'nov',
+  'dec',
+]);
+
+function cleanQuickFindToken(token: string) {
+  return token
+    .toLowerCase()
+    .replace(/['’]s$/, '')
+    .replace(/[^a-z0-9-]/g, '');
+}
+
+function tokenizeQuickFindText(value?: string) {
+  if (!value) return [];
+
+  return value
+    .split(/[\/_\-.()[\]\s]+/)
+    .map(cleanQuickFindToken)
+    .filter(token => token.length >= 3)
+    .filter(token => !/^\d+$/.test(token))
+    .filter(token => !ignoredQuickFindWords.has(token));
+}
+
+function buildQuickFinds(files: SearchResult[]) {
+  const counts = new Map<string, number>();
+
+  files.forEach(file => {
+    const tokens = [
+      file.name,
+      file.path,
+      file.pathLower,
+      file.extension,
+      file.mediaType,
+      file.matchType,
+    ].flatMap(tokenizeQuickFindText);
+
+    new Set(tokens).forEach(token => {
+      counts.set(token, (counts.get(token) || 0) + 1);
+    });
+  });
+
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([token]) => token)
+    .slice(0, 10);
+}
 
 function formatFileSize(bytes?: number) {
   if (!bytes) return 'Folder';
@@ -171,6 +264,10 @@ export function MediaLibrary() {
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const activeCollection = collections.find(collection => collection.id === activeCollectionId) || collections[0];
+  const quickFinds = useMemo(() => {
+    const generatedFinds = buildQuickFinds(results);
+    return generatedFinds.length ? generatedFinds : defaultQuickSearches;
+  }, [results]);
 
   const modifiedAfter = useMemo(() => {
     if (datePreset === 'any') return '';
@@ -484,7 +581,7 @@ export function MediaLibrary() {
         <div className="flex min-w-0 items-center gap-3">
           <span className="hidden shrink-0 text-[11px] uppercase tracking-[0.16em] text-[#ffc083] md:block">Quick Finds</span>
           <div className="flex gap-2 overflow-x-auto [scrollbar-width:none]">
-          {quickSearches.map(searchTerm => (
+          {quickFinds.map(searchTerm => (
             <button
               key={searchTerm}
               type="button"
