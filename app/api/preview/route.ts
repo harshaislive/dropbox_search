@@ -1,0 +1,31 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { dropboxClient } from '@/lib/dropbox';
+
+export async function GET(request: NextRequest) {
+  try {
+    const path = request.nextUrl.searchParams.get('path');
+
+    if (!path) {
+      return NextResponse.json(
+        { error: 'Path parameter is required' },
+        { status: 400 }
+      );
+    }
+
+    try {
+      const previewUrl = await dropboxClient.getPreview(path);
+      return NextResponse.json({ previewUrl, source: 'preview' });
+    } catch {
+      const link = await dropboxClient.getTemporaryLink(path);
+      return NextResponse.json({ previewUrl: link, source: 'temporary_link' });
+    }
+  } catch (error: unknown) {
+    console.error('Preview API error:', error);
+    const message = error instanceof Error ? error.message : 'Failed to load preview';
+
+    return NextResponse.json(
+      { error: 'PREVIEW_FAILED', message },
+      { status: 500 }
+    );
+  }
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Search, Loader2, FileText, Image, Video, Folder, File,
@@ -91,6 +91,7 @@ export function EnhancedSearchInterface() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [thumbnailCache, setThumbnailCache] = useState<Record<string, string>>({});
   const [filterChanged, setFilterChanged] = useState(false);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   // Load recent searches from localStorage
   useEffect(() => {
@@ -155,6 +156,7 @@ export function EnhancedSearchInterface() {
         params.append('cursor', searchCursor);
       } else {
         params.append('q', finalQuery);
+        params.append('maxResults', '48');
         saveRecentSearch(searchQuery);
       }
 
@@ -227,6 +229,23 @@ export function EnhancedSearchInterface() {
       search(query, cursor);
     }
   };
+
+  useEffect(() => {
+    const node = loadMoreRef.current;
+    if (!node || !hasMore || loading) return;
+
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0]?.isIntersecting && cursor) {
+          search(query, cursor);
+        }
+      },
+      { rootMargin: '600px 0px' }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [cursor, hasMore, loading, query, search]);
 
   const getFileIcon = (file: SearchResult) => {
     if (file.isFolder) return <Folder className="w-5 h-5" />;
@@ -676,6 +695,8 @@ export function EnhancedSearchInterface() {
           </div>
         </div>
         )}
+
+      <div ref={loadMoreRef} className="h-8" />
 
       {/* Load More */}
       {hasMore && !loading && (

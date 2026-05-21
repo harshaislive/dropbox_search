@@ -34,8 +34,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: 'ABC Arizona Flare', Georgia, serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --font-arizona-flare: 'ABC Arizona Flare', serif;
   --font-arizona-sans: 'ABC Arizona Sans', sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
@@ -74,49 +74,49 @@
 }
 
 :root {
-  --radius: 0.625rem;
+  --radius: 0.25rem;
   
-  /* Beforest Brand Colors */
-  --brand-dark-earth: oklch(0.303 0.033 67.72); /* #342e29 */
-  --brand-rich-red: oklch(0.439 0.108 30.35); /* #86312b */
-  --brand-forest-green: oklch(0.332 0.044 145.3); /* #344736 */
-  --brand-deep-blue: oklch(0.221 0.108 241.65); /* #002140 */
-  --brand-warm-yellow: oklch(0.876 0.099 82.69); /* #ffc083 */
-  --brand-coral-orange: oklch(0.724 0.17 46.44); /* #ff774a */
-  --brand-soft-green: oklch(0.883 0.095 129.04); /* #b8dc99 */
-  --brand-light-blue: oklch(0.875 0.083 215.46); /* #b0ddf1 */
+  /* Beforest 10% palette */
+  --brand-dark-earth: #342e29;
+  --brand-rich-red: #86312b;
+  --brand-forest-green: #344736;
+  --brand-night-green: #0d2818;
+  --brand-warm-white: #fdfbf7;
+  --brand-paper: #fbf7f0;
+  --brand-sand: #f6f1e9;
+  --brand-warm-yellow: #ffc083;
   
-  --background: oklch(0.985 0 0);
+  --background: var(--brand-warm-white);
   --foreground: var(--brand-dark-earth);
-  --card: oklch(1 0 0);
+  --card: rgba(255, 253, 249, 0.86);
   --card-foreground: var(--brand-dark-earth);
-  --popover: oklch(1 0 0);
+  --popover: var(--brand-warm-white);
   --popover-foreground: var(--brand-dark-earth);
-  --primary: var(--brand-deep-blue);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: var(--brand-soft-green);
+  --primary: var(--brand-rich-red);
+  --primary-foreground: var(--brand-warm-white);
+  --secondary: var(--brand-sand);
   --secondary-foreground: var(--brand-dark-earth);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0.033 67.72);
+  --muted: var(--brand-paper);
+  --muted-foreground: rgba(52, 46, 41, 0.68);
   --accent: var(--brand-warm-yellow);
   --accent-foreground: var(--brand-dark-earth);
   --destructive: var(--brand-rich-red);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: var(--brand-deep-blue);
-  --chart-1: var(--brand-coral-orange);
+  --border: rgba(52, 46, 41, 0.15);
+  --input: rgba(52, 46, 41, 0.2);
+  --ring: var(--brand-rich-red);
+  --chart-1: var(--brand-rich-red);
   --chart-2: var(--brand-forest-green);
-  --chart-3: var(--brand-deep-blue);
+  --chart-3: var(--brand-night-green);
   --chart-4: var(--brand-warm-yellow);
-  --chart-5: var(--brand-soft-green);
-  --sidebar: oklch(0.985 0 0);
+  --chart-5: var(--brand-sand);
+  --sidebar: var(--brand-warm-white);
   --sidebar-foreground: var(--brand-dark-earth);
-  --sidebar-primary: var(--brand-deep-blue);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-primary: var(--brand-rich-red);
+  --sidebar-primary-foreground: var(--brand-warm-white);
   --sidebar-accent: var(--brand-warm-yellow);
   --sidebar-accent-foreground: var(--brand-dark-earth);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: var(--brand-deep-blue);
+  --sidebar-border: rgba(52, 46, 41, 0.15);
+  --sidebar-ring: var(--brand-rich-red);
 }
 
 .dark {
@@ -159,6 +159,30 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'ABC Arizona Flare', Georgia, serif;
+    font-feature-settings: "kern" 1, "liga" 1;
+    letter-spacing: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: 'ABC Arizona Flare', Georgia, serif;
+    font-weight: 300;
+    letter-spacing: 0;
+    font-feature-settings: "kern" 1, "liga" 1, "dlig" 1;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    letter-spacing: 0;
   }
 }
 

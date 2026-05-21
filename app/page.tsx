@@ -1,5 +1,5 @@
-import { EnhancedSearchInterface } from '@/components/enhanced-search-interface';
+import { MediaLibrary } from '@/components/media-library';
 
 export default function Home() {
-  return <EnhancedSearchInterface />;
+  return <MediaLibrary />;
 }

@@ -91,9 +91,11 @@ class DropboxClient {
   async searchFiles(query: string, options?: {
     path?: string;
     maxResults?: number;
-    fileCategories?: Array<'image' | 'document' | 'pdf' | 'video' | 'folder' | 'paper' | 'others'>;
+    fileCategories?: Array<'image' | 'document' | 'pdf' | 'spreadsheet' | 'presentation' | 'audio' | 'video' | 'folder' | 'paper' | 'others'>;
     fileExtensions?: string[];
     cursor?: string;
+    orderBy?: 'relevance' | 'last_modified_time';
+    filenameOnly?: boolean;
   }) {
     const client = await this.getClient();
     
@@ -154,6 +156,8 @@ class DropboxClient {
         query: searchQuery || '*', // Use wildcard if no query
         options: {
           max_results: Math.min(options?.maxResults || 20, 100), // Limit to max 100
+          order_by: { '.tag': options?.orderBy || 'relevance' },
+          filename_only: options?.filenameOnly || false,
         },
       };
 
@@ -197,6 +201,42 @@ class DropboxClient {
     }
   }
 
+  async listFolder(path = '', cursor?: string) {
+    const client = await this.getClient();
+
+    try {
+      if (cursor) {
+        return await client.filesListFolderContinue({ cursor });
+      }
+
+      return await client.filesListFolder({
+        path,
+        include_media_info: true,
+        include_mounted_folders: true,
+        include_non_downloadable_files: true,
+        limit: 100,
+      });
+    } catch (error) {
+      console.error('Error listing folder:', error);
+      throw error;
+    }
+  }
+
+  async getMetadata(path: string) {
+    const client = await this.getClient();
+
+    try {
+      return await client.filesGetMetadata({
+        path,
+        include_media_info: true,
+        include_has_explicit_shared_members: true,
+      });
+    } catch (error) {
+      console.error('Error getting metadata:', error);
+      throw error;
+    }
+  }
+
   async downloadFile(path: string): Promise<Blob> {
     const client = await this.getClient();
     
@@ -205,6 +245,29 @@ class DropboxClient {
       return (response.result as any).fileBlob;
     } catch (error) {
       console.error('Error downloading file:', error);
+      throw error;
+    }
+  }
+
+  async getPreview(path: string): Promise<string> {
+    const client = await this.getClient();
+
+    try {
+      const response = await client.filesGetPreview({ path });
+      const result = response.result as any;
+      const fileData = result.fileBinary || result.fileBlob;
+
+      if (!fileData) {
+        throw new Error('Preview response did not include file data');
+      }
+
+      const buffer = Buffer.isBuffer(fileData)
+        ? fileData
+        : Buffer.from(await fileData.arrayBuffer());
+
+      return `data:application/octet-stream;base64,${buffer.toString('base64')}`;
+    } catch (error) {
+      console.error('Error getting preview:', error);
       throw error;
     }
   }
@@ -237,6 +300,42 @@ class DropboxClient {
       return `data:image/jpeg;base64,${base64}`;
     } catch (error: any) {
       console.error('Error getting thumbnail:', error?.error || error);
+      throw error;
+    }
+  }
+
+  async getThumbnailBatch(paths: string[], size: 'w32h32' | 'w64h64' | 'w128h128' | 'w256h256' | 'w480h320' | 'w640h480' | 'w960h640' | 'w1024h768' | 'w2048h1536' = 'w256h256') {
+    const client = await this.getClient();
+    const requestedPaths = paths.slice(0, 25);
+
+    try {
+      const response = await client.filesGetThumbnailBatch({
+        entries: requestedPaths.map(path => ({
+          path,
+          format: { '.tag': 'jpeg' },
+          size: { '.tag': size },
+          mode: { '.tag': 'bestfit' },
+        })),
+      } as any);
+
+      const thumbnails: Record<string, string> = {};
+      const failures: Record<string, string> = {};
+
+      response.result.entries.forEach((entry: any, index: number) => {
+        const fallbackPath = requestedPaths[index];
+
+        if (entry['.tag'] === 'success') {
+          const path = entry.metadata.path_display || entry.metadata.path_lower || fallbackPath;
+          thumbnails[path] = `data:image/jpeg;base64,${entry.thumbnail}`;
+          return;
+        }
+
+        failures[fallbackPath] = entry.failure?.['.tag'] || entry['.tag'] || 'unknown';
+      });
+
+      return { thumbnails, failures };
+    } catch (error) {
+      console.error('Error getting thumbnail batch:', error);
       throw error;
     }
   }
