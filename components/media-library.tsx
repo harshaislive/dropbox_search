@@ -254,7 +254,7 @@ export function MediaLibrary() {
       const response = await fetch('/api/thumbnails/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paths, size: 'w480h320' }),
+        body: JSON.stringify({ paths, size: 'w1024h768' }),
       });
       const data = await response.json();
 
@@ -361,7 +361,7 @@ export function MediaLibrary() {
         setMetadata(await metadataResponse.value.json());
       }
 
-      if (!thumbnails[file.path] && previewResponse.status === 'fulfilled' && previewResponse.value.ok) {
+      if (previewResponse.status === 'fulfilled' && previewResponse.value.ok) {
         const data = await previewResponse.value.json();
         setPreviewUrl(data.previewUrl);
       }
@@ -547,7 +547,7 @@ export function MediaLibrary() {
                     <img
                       src={thumbnails[file.path]}
                       alt={file.name}
-                      className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.045] group-hover:saturate-90"
+                      className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.045] group-hover:brightness-105 group-hover:saturate-105"
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center text-[#fdfbf7]">
