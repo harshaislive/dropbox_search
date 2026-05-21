@@ -450,14 +450,19 @@ export function MediaLibrary() {
   return (
     <div className="min-h-screen bg-[#fdfbf7] text-[#342e29]">
       <header className="sticky top-0 z-30 border-b border-[#d8c9ae] bg-[#fdfbf7]/95 backdrop-blur-md">
-        <div className="grid gap-3 px-4 py-3 lg:grid-cols-[180px_minmax(320px,1fr)_auto] lg:items-center lg:px-7">
+        <div className="grid gap-3 px-4 py-3 lg:grid-cols-[210px_minmax(320px,1fr)_auto] lg:items-center lg:px-7">
           <div className="flex items-center justify-between gap-3">
-            <img
-              src="https://beforest.co/wp-content/uploads/2024/10/23-Beforest-Black-with-Tagline.png"
-              alt="Beforest"
-              className="h-9 w-auto object-contain"
-            />
-            <Button className="lg:hidden" variant="outline" size="icon" onClick={() => setFiltersOpen(true)}>
+            <div className="flex items-center gap-3">
+              <img
+                src="https://beforest.co/wp-content/uploads/2024/10/23-Beforest-Black-with-Tagline.png"
+                alt="Beforest"
+                className="h-9 w-auto object-contain"
+              />
+              <div className="hidden border-l border-[#d8c9ae] pl-3 text-[11px] uppercase tracking-[0.16em] text-[#342e29]/60 sm:block">
+                Media Desk
+              </div>
+            </div>
+            <Button className="lg:hidden" variant="outline" size="icon" onClick={() => setFiltersOpen(true)} aria-label="Open search filters">
               <SlidersHorizontal />
             </Button>
           </div>
@@ -468,7 +473,7 @@ export function MediaLibrary() {
               <Input
                 value={query}
                 onChange={event => setQuery(event.target.value)}
-                placeholder="Search Dropbox assets"
+                placeholder="Search images, places, people, filenames"
                 className="h-11 border-[#d8c9ae] bg-[#fffdf9] pl-9 text-base"
               />
             </div>
@@ -490,17 +495,19 @@ export function MediaLibrary() {
           <div className="hidden items-center justify-end gap-2 lg:flex">
             <Button variant="outline" onClick={() => setFiltersOpen(true)}>
               <SlidersHorizontal />
-              Filters / Library
+              Search In / Filters
             </Button>
-            <Button variant="ghost" size="icon" onClick={logout}>
+            <Button variant="ghost" size="icon" onClick={logout} aria-label="Logout">
               <LogOut />
             </Button>
           </div>
         </div>
       </header>
 
-      <section className="flex items-center justify-between gap-4 overflow-hidden border-b border-[#d8c9ae] bg-[#fdfbf7] px-4 py-3 lg:px-7">
-        <div className="flex gap-2 overflow-x-auto [scrollbar-width:none]">
+      <section className="flex items-center justify-between gap-4 overflow-hidden border-b border-[#d8c9ae] bg-[#342e29] px-4 py-3 text-[#fdfbf7] lg:px-7">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="hidden shrink-0 text-[11px] uppercase tracking-[0.16em] text-[#ffc083] md:block">Quick Finds</span>
+          <div className="flex gap-2 overflow-x-auto [scrollbar-width:none]">
           {quickSearches.map(searchTerm => (
             <button
               key={searchTerm}
@@ -509,14 +516,15 @@ export function MediaLibrary() {
                 setQuery(searchTerm);
                 runSearch(null, searchTerm);
               }}
-              className="whitespace-nowrap rounded-full border border-[#d8c9ae] bg-[#fffdf9] px-3 py-1.5 text-sm text-[#342e29] transition-colors hover:border-[#86312b] hover:text-[#86312b]"
+              className="whitespace-nowrap rounded-full border border-[#fdfbf7]/18 bg-[#fdfbf7]/8 px-3 py-1.5 text-sm text-[#fdfbf7] transition-colors hover:border-[#ffc083] hover:text-[#ffc083]"
             >
               {searchTerm}
             </button>
           ))}
+          </div>
         </div>
-        <div className="hidden whitespace-nowrap text-sm text-[#342e29]/65 md:block">
-          {results.length ? `${results.length} visible assets` : 'Full-width media wall'}
+        <div className="hidden whitespace-nowrap text-sm text-[#fdfbf7]/70 md:block">
+          {results.length ? `${results.length} assets on desk` : 'Contact sheet ready'}
           {folderPath ? ` · ${folderPath}` : ''}
         </div>
       </section>
@@ -577,30 +585,30 @@ export function MediaLibrary() {
               <Search className="mx-auto mb-4 size-8 text-[#86312b]" />
               <h1 className="text-4xl font-light leading-tight">Search the Beforest media archive.</h1>
               <p className="mt-3 text-[#342e29]/68">
-                Keep the screen clean for images. Folder scope, dates, extensions, and collections are in Filters / Library.
+                Keep the screen clean for images. Choose where to search, dates, extensions, and shortlists from Search In / Filters.
               </p>
             </div>
           </section>
         )}
 
         <div ref={loadMoreRef} className="flex min-h-20 items-center justify-center border-t border-[#d8c9ae] text-sm text-[#342e29]/60">
-          {loading && results.length ? 'Loading more assets...' : hasMore ? 'More assets load automatically as you scroll.' : results.length ? 'End of current result set.' : ''}
+          {loading && results.length ? 'Loading the next contact sheet...' : hasMore ? 'More assets load automatically as you scroll.' : results.length ? 'End of current result set.' : ''}
         </div>
       </main>
 
       <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
         <DialogContent className="max-h-[92vh] max-w-5xl overflow-auto bg-[#fdfbf7]">
           <DialogHeader>
-            <DialogTitle>Filters / Library</DialogTitle>
-            <DialogDescription>Keep the media wall full bleed, and use this panel when you need precision.</DialogDescription>
+            <DialogTitle>Search In / Filters</DialogTitle>
+            <DialogDescription>Choose where Dropbox should search, then refine the result set without crowding the media wall.</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-            <Card>
+            <Card className="border-[#d8c9ae] bg-[#fffdf9]">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <SlidersHorizontal />
-                  Advanced Search
+                  Refine Search
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid gap-3">
@@ -650,19 +658,20 @@ export function MediaLibrary() {
                   Filename only
                 </Button>
                 <Button type="button" onClick={() => runSearch()}>
-                  Apply filters
+                  Apply to media wall
                 </Button>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-[#d8c9ae] bg-[#fffdf9]">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Folder />
-                  Folder Scope
+                  Search In
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-3">
+                <p className="text-sm text-[#342e29]/65">Choose a Dropbox folder to search within.</p>
                 <div className="flex flex-wrap gap-1">
                   {breadcrumb.map(crumb => (
                     <Button
@@ -703,11 +712,11 @@ export function MediaLibrary() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-[#d8c9ae] bg-[#fffdf9]">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Archive />
-                  Collections
+                  Shortlists
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-3">
@@ -715,7 +724,7 @@ export function MediaLibrary() {
                   <Input
                     value={newCollectionName}
                     onChange={event => setNewCollectionName(event.target.value)}
-                    placeholder="New collection"
+                    placeholder="New shortlist"
                   />
                   <Button type="button" size="icon" onClick={createCollection}>
                     <Plus />
@@ -740,12 +749,13 @@ export function MediaLibrary() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-[#d8c9ae] bg-[#fffdf9]">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Info />
-                  {activeCollection.name}
+                  Current Shortlist
                 </CardTitle>
+                <p className="text-sm text-[#342e29]/65">{activeCollection.name}</p>
               </CardHeader>
               <CardContent>
                 <ScrollArea className="h-[250px]">
@@ -763,7 +773,7 @@ export function MediaLibrary() {
                         </button>
                       ))
                     ) : (
-                      <p className="text-sm text-muted-foreground">Shortlisted assets will appear here.</p>
+                      <p className="text-sm text-muted-foreground">Images you shortlist from the wall will appear here.</p>
                     )}
                   </div>
                 </ScrollArea>
@@ -805,7 +815,7 @@ export function MediaLibrary() {
                 <div className="flex gap-2">
                   <Button type="button" size="sm" onClick={() => addToCollection(selectedFile)}>
                     <Plus />
-                    Add
+                    Shortlist
                   </Button>
                   <Button type="button" variant="outline" size="sm" onClick={() => downloadFile(selectedFile)}>
                     <Download />
