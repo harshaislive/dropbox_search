@@ -5,6 +5,11 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Beforest Media Library",
   description: "Dropbox media search and shortlisting for Beforest",
+  icons: {
+    icon: "/beforest-favicon.png",
+    shortcut: "/beforest-favicon.png",
+    apple: "/beforest-favicon.png",
+  },
 };
 
 export default function RootLayout({
