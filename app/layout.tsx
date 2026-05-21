@@ -6,8 +6,8 @@ export const metadata: Metadata = {
   title: "Beforest Media Library",
   description: "Dropbox media search and shortlisting for Beforest",
   icons: {
-    icon: "/beforest-favicon.png",
-    shortcut: "/beforest-favicon.png",
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
     apple: "/beforest-favicon.png",
   },
 };
