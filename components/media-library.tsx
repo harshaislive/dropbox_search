@@ -168,8 +168,6 @@ export function MediaLibrary() {
   const [collections, setCollections] = useState<Collection[]>(collectionSeed);
   const [activeCollectionId, setActiveCollectionId] = useState('default-shortlist');
   const [newCollectionName, setNewCollectionName] = useState('');
-  const [tagInput, setTagInput] = useState('');
-  const [tagsByPath, setTagsByPath] = useState<Record<string, string[]>>({});
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const activeCollection = collections.find(collection => collection.id === activeCollectionId) || collections[0];
@@ -196,24 +194,15 @@ export function MediaLibrary() {
 
   useEffect(() => {
     const savedCollections = localStorage.getItem('mediaCollections:v1');
-    const savedTags = localStorage.getItem('mediaTags:v1');
 
     if (savedCollections) {
       setCollections(JSON.parse(savedCollections));
-    }
-
-    if (savedTags) {
-      setTagsByPath(JSON.parse(savedTags));
     }
   }, []);
 
   useEffect(() => {
     localStorage.setItem('mediaCollections:v1', JSON.stringify(collections));
   }, [collections]);
-
-  useEffect(() => {
-    localStorage.setItem('mediaTags:v1', JSON.stringify(tagsByPath));
-  }, [tagsByPath]);
 
   const loadFolder = useCallback(async (path: string) => {
     setFolderLoading(true);
@@ -426,18 +415,6 @@ export function MediaLibrary() {
     setCollections(prev => [collection, ...prev]);
     setActiveCollectionId(collection.id);
     setNewCollectionName('');
-  };
-
-  const addTag = () => {
-    if (!selectedFile || !tagInput.trim()) return;
-    const tag = tagInput.trim().toLowerCase();
-
-    setTagsByPath(prev => {
-      const existing = prev[selectedFile.path] || [];
-      if (existing.includes(tag)) return prev;
-      return { ...prev, [selectedFile.path]: [...existing, tag] };
-    });
-    setTagInput('');
   };
 
   const logout = async () => {
@@ -815,70 +792,22 @@ export function MediaLibrary() {
                 )}
               </div>
 
-              <div className="absolute left-4 right-4 top-4 flex items-start justify-between gap-4 md:left-6 md:right-6 md:top-6">
-                <DialogHeader className="max-w-[min(760px,72vw)] rounded-md bg-black/34 p-3 text-left backdrop-blur-md">
-                  <DialogTitle className="text-xl font-light leading-tight text-[#fdfbf7] md:text-3xl">
+              <div className="absolute left-4 right-16 top-4 flex items-start gap-4 md:left-6 md:right-20 md:top-6">
+                <DialogHeader className="max-w-[min(760px,72vw)] text-left">
+                  <DialogTitle className="text-xl font-light leading-tight text-[#fdfbf7] drop-shadow-md md:text-3xl">
                     {selectedFile.name}
                   </DialogTitle>
-                  <DialogDescription className="mt-1 line-clamp-2 break-words text-xs leading-relaxed text-[#fdfbf7]/68 md:text-sm">
-                    {selectedFile.path}
+                  <DialogDescription className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs leading-relaxed text-[#fdfbf7]/72 md:text-sm">
+                    <span>{formatDate(metadata?.serverModified || selectedFile.serverModified || selectedFile.modified)}</span>
+                    <span>{metadata?.extension || selectedFile.extension || selectedFile.tag}</span>
+                    <span>{formatFileSize(metadata?.size || selectedFile.size)}</span>
+                    {(metadata?.dimensions || selectedFile.dimensions) && (
+                      <span>
+                        {(metadata?.dimensions || selectedFile.dimensions)?.width} x {(metadata?.dimensions || selectedFile.dimensions)?.height}
+                      </span>
+                    )}
                   </DialogDescription>
                 </DialogHeader>
-              </div>
-
-              <div className="absolute inset-x-4 bottom-4 md:inset-x-6 md:bottom-6">
-                <div className="grid gap-3 rounded-md border border-[#fdfbf7]/14 bg-[#17130f] p-3 lg:grid-cols-[1fr_auto] lg:items-end">
-                  <div className="grid gap-3">
-                    <div className="flex flex-wrap gap-2 text-xs text-[#fdfbf7]/80">
-                      <span className="rounded-full border border-[#fdfbf7]/16 bg-[#fdfbf7]/8 px-3 py-1 uppercase">
-                        {metadata?.extension || selectedFile.extension || selectedFile.tag}
-                      </span>
-                      <span className="rounded-full border border-[#fdfbf7]/16 bg-[#fdfbf7]/8 px-3 py-1">
-                        {formatFileSize(metadata?.size || selectedFile.size)}
-                      </span>
-                      <span className="rounded-full border border-[#fdfbf7]/16 bg-[#fdfbf7]/8 px-3 py-1">
-                        {formatDate(metadata?.serverModified || selectedFile.serverModified || selectedFile.modified)}
-                      </span>
-                      {(metadata?.dimensions || selectedFile.dimensions) && (
-                        <span className="rounded-full border border-[#fdfbf7]/16 bg-[#fdfbf7]/8 px-3 py-1">
-                          {(metadata?.dimensions || selectedFile.dimensions)?.width} x {(metadata?.dimensions || selectedFile.dimensions)?.height}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="flex min-w-[220px] flex-1 gap-2">
-                        <Input
-                          value={tagInput}
-                          onChange={event => setTagInput(event.target.value)}
-                          placeholder="Add review tag"
-                          className="h-10 border-[#fdfbf7]/18 bg-[#fdfbf7]/10 text-[#fdfbf7] placeholder:text-[#fdfbf7]/45"
-                        />
-                        <Button type="button" size="sm" onClick={addTag} className="h-10 bg-[#fdfbf7] text-[#342e29] hover:bg-[#ffc083]">
-                          Add
-                        </Button>
-                      </div>
-                      {(tagsByPath[selectedFile.path] || []).map(tag => (
-                        <Badge key={tag} variant="secondary" className="bg-[#fdfbf7]/14 text-[#fdfbf7]">{tag}</Badge>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 lg:justify-end">
-                    <Button type="button" onClick={() => addToCollection(selectedFile)} className="bg-[#86312b] text-[#fdfbf7] hover:bg-[#342e29]">
-                      <Plus />
-                      Shortlist
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => downloadFile(selectedFile)} className="border-[#fdfbf7]/20 bg-[#fdfbf7]/10 text-[#fdfbf7] hover:bg-[#fdfbf7] hover:text-[#342e29]">
-                      <Download />
-                      Download
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => openDropboxLink(selectedFile)} className="border-[#fdfbf7]/20 bg-[#fdfbf7]/10 text-[#fdfbf7] hover:bg-[#fdfbf7] hover:text-[#342e29]">
-                      <ExternalLink />
-                      Dropbox
-                    </Button>
-                  </div>
-                </div>
               </div>
             </div>
           )}
