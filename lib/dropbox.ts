@@ -1,4 +1,4 @@
-import { Dropbox, DropboxAuth } from 'dropbox';
+import { Dropbox } from 'dropbox';
 import axios from 'axios';
 
 interface TokenResponse {
@@ -210,37 +210,33 @@ class DropboxClient {
   }
 
   async getThumbnail(path: string, size: 'w32h32' | 'w64h64' | 'w128h128' | 'w256h256' | 'w480h320' | 'w640h480' | 'w960h640' | 'w1024h768' | 'w2048h1536' = 'w256h256'): Promise<string> {
-    const accessToken = this.accessToken || await this.refreshAccessToken();
-    
+    const client = await this.getClient();
+
     try {
-      // Use the correct Dropbox thumbnail API endpoint
-      const nodeFetch = await import('node-fetch');
-      const response = await nodeFetch.default('https://content.dropboxapi.com/2/files/get_thumbnail_v2', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Dropbox-API-Arg': JSON.stringify({
-            resource: {
-              '.tag': 'path',
-              path: path,
-            },
-            size: size,
-            format: 'jpeg',
-            mode: 'strict',
-            quality: 'quality_80'
-          }),
+      const response = await client.filesGetThumbnailV2({
+        resource: {
+          '.tag': 'path',
+          path,
         },
+        format: { '.tag': 'jpeg' },
+        size: { '.tag': size },
+        mode: { '.tag': 'bestfit' },
       });
 
-      if (!response.ok) {
-        throw new Error(`Thumbnail API error: ${response.status}`);
+      const result = response.result as any;
+      const fileData = result.fileBinary || result.fileBlob;
+
+      if (!fileData) {
+        throw new Error('Thumbnail response did not include image data');
       }
 
-      const buffer = await response.buffer();
+      const buffer = Buffer.isBuffer(fileData)
+        ? fileData
+        : Buffer.from(await fileData.arrayBuffer());
       const base64 = buffer.toString('base64');
       return `data:image/jpeg;base64,${base64}`;
-    } catch (error) {
-      console.error('Error getting thumbnail:', error);
+    } catch (error: any) {
+      console.error('Error getting thumbnail:', error?.error || error);
       throw error;
     }
   }
