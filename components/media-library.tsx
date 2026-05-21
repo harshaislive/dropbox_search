@@ -815,8 +815,6 @@ export function MediaLibrary() {
                 )}
               </div>
 
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-black/82 via-black/42 to-transparent" />
-
               <div className="absolute left-4 right-4 top-4 flex items-start justify-between gap-4 md:left-6 md:right-6 md:top-6">
                 <DialogHeader className="max-w-[min(760px,72vw)] rounded-md bg-black/34 p-3 text-left backdrop-blur-md">
                   <DialogTitle className="text-xl font-light leading-tight text-[#fdfbf7] md:text-3xl">
@@ -829,7 +827,7 @@ export function MediaLibrary() {
               </div>
 
               <div className="absolute inset-x-4 bottom-4 md:inset-x-6 md:bottom-6">
-                <div className="grid gap-3 rounded-md border border-[#fdfbf7]/14 bg-black/48 p-3 backdrop-blur-xl lg:grid-cols-[1fr_auto] lg:items-end">
+                <div className="grid gap-3 rounded-md border border-[#fdfbf7]/14 bg-[#17130f] p-3 lg:grid-cols-[1fr_auto] lg:items-end">
                   <div className="grid gap-3">
                     <div className="flex flex-wrap gap-2 text-xs text-[#fdfbf7]/80">
                       <span className="rounded-full border border-[#fdfbf7]/16 bg-[#fdfbf7]/8 px-3 py-1 uppercase">
