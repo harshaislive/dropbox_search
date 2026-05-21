@@ -783,7 +783,7 @@ export function MediaLibrary() {
       </Dialog>
 
       <Dialog open={!!selectedFile} onOpenChange={() => setSelectedFile(null)}>
-        <DialogContent className="h-[94vh] max-h-[94vh] w-[96vw] max-w-[1500px] overflow-hidden border-0 bg-[#120f0c] p-0 text-[#fdfbf7]">
+        <DialogContent showCloseButton={false} className="h-[94vh] max-h-[94vh] w-[96vw] max-w-[1500px] overflow-hidden border-0 bg-[#120f0c] p-0 text-[#fdfbf7]">
           {selectedFile && (
             <div className="relative h-full">
               <button
