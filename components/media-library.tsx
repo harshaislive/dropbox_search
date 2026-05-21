@@ -16,7 +16,6 @@ import {
   Plus,
   Search,
   SlidersHorizontal,
-  Tag,
   Video,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -26,7 +25,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
@@ -784,10 +782,10 @@ export function MediaLibrary() {
       </Dialog>
 
       <Dialog open={!!selectedFile} onOpenChange={() => setSelectedFile(null)}>
-        <DialogContent className="max-h-[94vh] max-w-[min(96vw,1320px)] overflow-hidden border-[#d8c9ae] bg-[#17130f] p-0 text-[#fdfbf7]">
+        <DialogContent className="h-[94vh] max-h-[94vh] w-[96vw] max-w-[1500px] overflow-hidden border-0 bg-[#120f0c] p-0 text-[#fdfbf7]">
           {selectedFile && (
-            <div className="grid max-h-[94vh] lg:grid-cols-[minmax(0,1fr)_360px]">
-              <div className="relative flex min-h-[58vh] items-center justify-center bg-[#17130f] p-4 lg:min-h-[86vh] lg:p-8">
+            <div className="relative h-full">
+              <div className="absolute inset-0 flex items-center justify-center bg-[#120f0c] p-4 md:p-8">
                 {detailLoading && !previewUrl ? (
                   <div className="flex aspect-video items-center justify-center text-[#fdfbf7]/70">
                     <Loader2 className="animate-spin" />
@@ -796,96 +794,84 @@ export function MediaLibrary() {
                   <img
                     src={previewUrl}
                     alt={selectedFile.name}
-                    className="max-h-[82vh] w-full object-contain shadow-[0_28px_90px_rgba(0,0,0,0.38)]"
+                    className="max-h-[88vh] max-w-full object-contain"
                   />
                 ) : previewUrl && selectedFile.extension && videoExtensions.has(selectedFile.extension.toLowerCase()) ? (
-                  <video src={previewUrl} controls className="max-h-[82vh] w-full" />
+                  <video src={previewUrl} controls className="max-h-[88vh] max-w-full" />
                 ) : (
                   <div className="flex aspect-video items-center justify-center text-[#fdfbf7]/70">
                     {fileIcon(selectedFile, 'size-12')}
                   </div>
                 )}
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/45 to-transparent lg:hidden" />
               </div>
 
-              <aside className="flex max-h-[94vh] flex-col overflow-auto border-l border-[#d8c9ae] bg-[#fdfbf7] p-6 text-[#342e29]">
-                <DialogHeader className="gap-3 text-left">
-                  <div className="text-[11px] uppercase tracking-[0.18em] text-[#86312b]">Asset Review</div>
-                  <DialogTitle className="text-3xl font-light leading-none text-[#342e29]">
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-black/82 via-black/42 to-transparent" />
+
+              <div className="absolute left-4 right-4 top-4 flex items-start justify-between gap-4 md:left-6 md:right-6 md:top-6">
+                <DialogHeader className="max-w-[min(760px,72vw)] rounded-md bg-black/34 p-3 text-left backdrop-blur-md">
+                  <DialogTitle className="text-xl font-light leading-tight text-[#fdfbf7] md:text-3xl">
                     {selectedFile.name}
                   </DialogTitle>
-                  <DialogDescription className="break-words text-sm leading-relaxed text-[#342e29]/62">
+                  <DialogDescription className="mt-1 line-clamp-2 break-words text-xs leading-relaxed text-[#fdfbf7]/68 md:text-sm">
                     {selectedFile.path}
                   </DialogDescription>
                 </DialogHeader>
+              </div>
 
-                <div className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-[#d8c9ae] bg-[#d8c9ae] text-sm">
-                  <div className="bg-[#fffdf9] p-3">
-                    <div className="text-[#342e29]/52">Type</div>
-                    <div className="mt-1 uppercase">{metadata?.extension || selectedFile.extension || selectedFile.tag}</div>
-                  </div>
-                  <div className="bg-[#fffdf9] p-3">
-                    <div className="text-[#342e29]/52">Size</div>
-                    <div className="mt-1">{formatFileSize(metadata?.size || selectedFile.size)}</div>
-                  </div>
-                  <div className="bg-[#fffdf9] p-3">
-                    <div className="text-[#342e29]/52">Modified</div>
-                    <div className="mt-1">{formatDate(metadata?.serverModified || selectedFile.serverModified || selectedFile.modified)}</div>
-                  </div>
-                  <div className="bg-[#fffdf9] p-3">
-                    <div className="text-[#342e29]/52">Dimensions</div>
-                    <div className="mt-1">
-                      {(metadata?.dimensions || selectedFile.dimensions)
-                        ? `${(metadata?.dimensions || selectedFile.dimensions)?.width} x ${(metadata?.dimensions || selectedFile.dimensions)?.height}`
-                        : 'Unknown'}
+              <div className="absolute inset-x-4 bottom-4 md:inset-x-6 md:bottom-6">
+                <div className="grid gap-3 rounded-md border border-[#fdfbf7]/14 bg-black/48 p-3 backdrop-blur-xl lg:grid-cols-[1fr_auto] lg:items-end">
+                  <div className="grid gap-3">
+                    <div className="flex flex-wrap gap-2 text-xs text-[#fdfbf7]/80">
+                      <span className="rounded-full border border-[#fdfbf7]/16 bg-[#fdfbf7]/8 px-3 py-1 uppercase">
+                        {metadata?.extension || selectedFile.extension || selectedFile.tag}
+                      </span>
+                      <span className="rounded-full border border-[#fdfbf7]/16 bg-[#fdfbf7]/8 px-3 py-1">
+                        {formatFileSize(metadata?.size || selectedFile.size)}
+                      </span>
+                      <span className="rounded-full border border-[#fdfbf7]/16 bg-[#fdfbf7]/8 px-3 py-1">
+                        {formatDate(metadata?.serverModified || selectedFile.serverModified || selectedFile.modified)}
+                      </span>
+                      {(metadata?.dimensions || selectedFile.dimensions) && (
+                        <span className="rounded-full border border-[#fdfbf7]/16 bg-[#fdfbf7]/8 px-3 py-1">
+                          {(metadata?.dimensions || selectedFile.dimensions)?.width} x {(metadata?.dimensions || selectedFile.dimensions)?.height}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex min-w-[220px] flex-1 gap-2">
+                        <Input
+                          value={tagInput}
+                          onChange={event => setTagInput(event.target.value)}
+                          placeholder="Add review tag"
+                          className="h-10 border-[#fdfbf7]/18 bg-[#fdfbf7]/10 text-[#fdfbf7] placeholder:text-[#fdfbf7]/45"
+                        />
+                        <Button type="button" size="sm" onClick={addTag} className="h-10 bg-[#fdfbf7] text-[#342e29] hover:bg-[#ffc083]">
+                          Add
+                        </Button>
+                      </div>
+                      {(tagsByPath[selectedFile.path] || []).map(tag => (
+                        <Badge key={tag} variant="secondary" className="bg-[#fdfbf7]/14 text-[#fdfbf7]">{tag}</Badge>
+                      ))}
                     </div>
                   </div>
-                </div>
 
-                <div className="mt-5 grid gap-2">
-                  <Button type="button" onClick={() => addToCollection(selectedFile)} className="h-11 justify-start">
-                    <Plus />
-                    Add to shortlist
-                  </Button>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button type="button" variant="outline" onClick={() => downloadFile(selectedFile)} className="justify-start">
+                  <div className="flex flex-wrap gap-2 lg:justify-end">
+                    <Button type="button" onClick={() => addToCollection(selectedFile)} className="bg-[#86312b] text-[#fdfbf7] hover:bg-[#342e29]">
+                      <Plus />
+                      Shortlist
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => downloadFile(selectedFile)} className="border-[#fdfbf7]/20 bg-[#fdfbf7]/10 text-[#fdfbf7] hover:bg-[#fdfbf7] hover:text-[#342e29]">
                       <Download />
                       Download
                     </Button>
-                    <Button type="button" variant="outline" onClick={() => openDropboxLink(selectedFile)} className="justify-start">
+                    <Button type="button" variant="outline" onClick={() => openDropboxLink(selectedFile)} className="border-[#fdfbf7]/20 bg-[#fdfbf7]/10 text-[#fdfbf7] hover:bg-[#fdfbf7] hover:text-[#342e29]">
                       <ExternalLink />
                       Dropbox
                     </Button>
                   </div>
                 </div>
-
-                <Separator className="my-5 bg-[#d8c9ae]" />
-
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2 text-sm font-medium text-[#342e29]">
-                    <Tag />
-                    Review tags
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {(tagsByPath[selectedFile.path] || []).map(tag => (
-                      <Badge key={tag} variant="secondary">{tag}</Badge>
-                    ))}
-                  </div>
-                  <div className="flex gap-2">
-                    <Input value={tagInput} onChange={event => setTagInput(event.target.value)} placeholder="Add tag" />
-                    <Button type="button" size="sm" onClick={addTag}>Add</Button>
-                  </div>
-                </div>
-
-                {(metadata?.contentHash || selectedFile.contentHash) && (
-                  <details className="mt-5 rounded-md border border-[#d8c9ae] bg-[#fffdf9] p-3 text-sm">
-                    <summary className="cursor-pointer text-[#342e29]/70">Technical details</summary>
-                    <code className="mt-3 block break-all rounded-sm bg-[#f4eee4] p-2 text-xs text-[#342e29]/75">
-                      {metadata?.contentHash || selectedFile.contentHash}
-                    </code>
-                  </details>
-                )}
-              </aside>
+              </div>
             </div>
           )}
         </DialogContent>
