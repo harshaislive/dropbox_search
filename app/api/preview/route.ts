@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dropboxClient } from '@/lib/dropbox';
 
+const videoExtensions = new Set(['mp4', 'mov', 'm4v', 'webm', 'avi', 'mkv']);
+
 export async function GET(request: NextRequest) {
   try {
     const path = request.nextUrl.searchParams.get('path');
@@ -10,6 +12,12 @@ export async function GET(request: NextRequest) {
         { error: 'Path parameter is required' },
         { status: 400 }
       );
+    }
+
+    const extension = path.split('.').pop()?.toLowerCase();
+    if (extension && videoExtensions.has(extension)) {
+      const link = await dropboxClient.getTemporaryLink(path);
+      return NextResponse.json({ previewUrl: link, source: 'temporary_link' });
     }
 
     try {

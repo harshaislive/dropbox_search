@@ -896,7 +896,14 @@ export function MediaLibrary() {
                     className="max-h-[88vh] max-w-full object-contain"
                   />
                 ) : previewUrl && selectedFile.extension && videoExtensions.has(selectedFile.extension.toLowerCase()) ? (
-                  <video src={previewUrl} controls className="max-h-[88vh] max-w-full" />
+                  <video
+                    src={previewUrl}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    poster={thumbnails[selectedFile.path] || undefined}
+                    className="max-h-[88vh] max-w-full"
+                  />
                 ) : (
                   <div className="flex aspect-video items-center justify-center text-[#fdfbf7]/70">
                     {fileIcon(selectedFile, 'size-12')}
