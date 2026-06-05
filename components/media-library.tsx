@@ -104,9 +104,9 @@ const defaultQuickSearches = [
   'stay',
 ];
 
-const thumbnailExtensions = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'tiff', 'tif', 'bmp', 'ppm']);
+const videoExtensions = new Set(['mp4', 'mov', 'm4v', 'webm', 'avi', 'mkv']);
+const thumbnailExtensions = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'tiff', 'tif', 'bmp', 'ppm', ...videoExtensions]);
 const previewImageExtensions = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'heic', 'heif', 'tiff', 'tif', 'bmp']);
-const videoExtensions = new Set(['mp4', 'mov', 'webm', 'avi', 'mkv']);
 const ignoredQuickFindWords = new Set([
   'beforest',
   'resource',
