@@ -262,6 +262,7 @@ export function MediaLibrary() {
   const [activeCollectionId, setActiveCollectionId] = useState('default-shortlist');
   const [newCollectionName, setNewCollectionName] = useState('');
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const requestedThumbnailPathsRef = useRef<Set<string>>(new Set());
 
   const activeCollection = collections.find(collection => collection.id === activeCollectionId) || collections[0];
   const quickFinds = useMemo(() => {
@@ -329,12 +330,13 @@ export function MediaLibrary() {
     const paths = files
       .filter(file => {
         const ext = file.extension?.toLowerCase();
-        return !file.isFolder && ext && thumbnailExtensions.has(ext) && !thumbnails[file.path];
+        return !file.isFolder && ext && thumbnailExtensions.has(ext) && !thumbnails[file.path] && !requestedThumbnailPathsRef.current.has(file.path);
       })
       .slice(0, 25)
       .map(file => file.path);
 
     if (!paths.length) return;
+    paths.forEach(path => requestedThumbnailPathsRef.current.add(path));
 
     try {
       const response = await fetch('/api/thumbnails/batch', {
@@ -345,10 +347,20 @@ export function MediaLibrary() {
       const data = await response.json();
 
       if (response.ok && data.thumbnails) {
+        await Promise.all(
+          Object.values<string>(data.thumbnails).map(src => new Promise<void>(resolve => {
+            const image = new Image();
+            image.onload = () => resolve();
+            image.onerror = () => resolve();
+            image.decoding = 'sync';
+            image.src = src;
+          }))
+        );
         setThumbnails(prev => ({ ...prev, ...data.thumbnails }));
       }
     } catch (error) {
       console.warn('Batch thumbnail load failed:', error);
+      paths.forEach(path => requestedThumbnailPathsRef.current.delete(path));
     }
   }, [thumbnails]);
 
@@ -611,7 +623,7 @@ export function MediaLibrary() {
           </div>
         ) : results.length ? (
           <div className="grid grid-cols-2 gap-0 bg-[#342e29] sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
-            {results.map(file => (
+            {results.map((file, index) => (
               <article
                 key={`${file.id}-${file.path}`}
                 className="group relative aspect-square overflow-hidden border-b border-r border-[#fdfbf7]/15 bg-[#344736]"
@@ -621,6 +633,9 @@ export function MediaLibrary() {
                     <img
                       src={thumbnails[file.path]}
                       alt={file.name}
+                      loading={index < 18 ? 'eager' : 'lazy'}
+                      decoding={index < 18 ? 'sync' : 'async'}
+                      fetchPriority={index < 18 ? 'high' : 'auto'}
                       className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.045] group-hover:brightness-105 group-hover:saturate-105"
                     />
                   ) : (
