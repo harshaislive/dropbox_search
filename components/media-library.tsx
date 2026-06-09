@@ -254,6 +254,7 @@ export function MediaLibrary() {
   const [hasMore, setHasMore] = useState(false);
   const [cursor, setCursor] = useState<string | null>(null);
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
+  const [loadingThumbnailPaths, setLoadingThumbnailPaths] = useState<Set<string>>(new Set());
   const [selectedFile, setSelectedFile] = useState<SearchResult | null>(null);
   const [metadata, setMetadata] = useState<Metadata | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -337,6 +338,11 @@ export function MediaLibrary() {
 
     if (!paths.length) return;
     paths.forEach(path => requestedThumbnailPathsRef.current.add(path));
+    setLoadingThumbnailPaths(prev => {
+      const next = new Set(prev);
+      paths.forEach(path => next.add(path));
+      return next;
+    });
 
     try {
       const response = await fetch('/api/thumbnails/batch', {
@@ -361,6 +367,12 @@ export function MediaLibrary() {
     } catch (error) {
       console.warn('Batch thumbnail load failed:', error);
       paths.forEach(path => requestedThumbnailPathsRef.current.delete(path));
+    } finally {
+      setLoadingThumbnailPaths(prev => {
+        const next = new Set(prev);
+        paths.forEach(path => next.delete(path));
+        return next;
+      });
     }
   }, [thumbnails]);
 
@@ -623,7 +635,12 @@ export function MediaLibrary() {
           </div>
         ) : results.length ? (
           <div className="grid grid-cols-2 gap-0 bg-[#342e29] sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
-            {results.map((file, index) => (
+            {results.map((file, index) => {
+              const extension = file.extension?.toLowerCase();
+              const canLoadThumbnail = !file.isFolder && Boolean(extension && thumbnailExtensions.has(extension));
+              const isThumbnailLoading = canLoadThumbnail && loadingThumbnailPaths.has(file.path);
+
+              return (
               <article
                 key={`${file.id}-${file.path}`}
                 className="group relative aspect-square overflow-hidden border-b border-r border-[#fdfbf7]/15 bg-[#344736]"
@@ -638,6 +655,14 @@ export function MediaLibrary() {
                       fetchPriority={index < 18 ? 'high' : 'auto'}
                       className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.045] group-hover:brightness-105 group-hover:saturate-105"
                     />
+                  ) : isThumbnailLoading ? (
+                    <div className="flex h-full items-center justify-center bg-[#344736] text-[#fdfbf7]">
+                      <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-[#fdfbf7]/10 via-[#ffc083]/10 to-transparent" />
+                      <div className="relative flex flex-col items-center gap-3">
+                        <Loader2 className="size-7 animate-spin text-[#ffc083]" />
+                        <span className="text-xs uppercase tracking-[0.16em] text-[#fdfbf7]/72">Loading</span>
+                      </div>
+                    </div>
                   ) : (
                     <div className="flex h-full items-center justify-center text-[#fdfbf7]">
                       {fileIcon(file, 'size-10')}
@@ -665,7 +690,8 @@ export function MediaLibrary() {
                   </Button>
                 </div>
               </article>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <section className="flex min-h-[62vh] items-center justify-center px-6 text-center">
